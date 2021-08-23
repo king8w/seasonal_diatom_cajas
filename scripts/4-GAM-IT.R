@@ -1,0 +1,447 @@
+## GAM Models of LCBD or species richness against chemical, physical and spatial factors
+# Calculate LCBD 
+
+#Load libraries for functions used
+library(adespatial)
+library(tidyverse)
+library(mgcv)
+library(ggplot2)
+
+#Load the data for the diatoms
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
+diat <- diat[,-ncol(diat)] #last column is NAs
+
+# Read in geographical coordinates lakes
+spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
+meta <- read.csv("data/metamonth.csv", row.names = 1)
+
+##Transform to relative abundance
+total <- apply(diat, 1, sum)
+diat <- diat/total*100
+
+##Remove rare species
+abund <- apply(diat, 2, max)
+n.occur <- apply(diat>0, 2, sum)
+diat <- diat[, n.occur>1 & abund>2] #more than 3% of RA and present in >1 sample
+
+# Perform LCBD
+diatomsLCBD <- beta.div(diat, method = "hellinger", nperm = 999, adj = TRUE, sqrt.D=FALSE)
+
+## plot a map of the LCBD indices
+LCBD <- data.frame(diatomsLCBD$LCBD)
+LCBD$Longitude <- spatial_var$Longitude
+LCBD$Latitude <- spatial_var$Latitude
+colnames(LCBD)[1] <- c("LCBD")
+LCBD$sign <- data.frame(diatomsLCBD$p.LCBD)
+colnames(LCBD[,4]) <- "sign"
+LCBD$sign.ad <- data.frame(diatomsLCBD$p.adj)
+
+#richness calculation
+richness<- apply(diat>0,1,sum)
+
+#LCBD - richness relationship
+LCBD$richness <- richness
+plot(LCBD$richness, LCBD$LCBD)
+cor.test(LCBD$richness, LCBD$LCBD, method = "spearman")
+
+LCBD_df <- data.frame(LCBD)
+
+# Plot LCBD-species richness
+LCBDrich <- ggplot(data=LCBD_df, aes(x=richness, y=LCBD))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  #annotate("text", x = 35, y = 0.0065, label = "")+
+  #annotate("text", x = 35, y = 0.0064, label = "italic(p) < 0.01", parse=TRUE)+
+  xlab("Species richness")+
+  theme_bw()
+LCBDrich
+
+## Prepare data to fit GAM model on LCBD
+#merge by row.names with model var previously subset from CCA
+df1 <- merge(LCBD_df, model_var, by=0)
+row.names(df1) <- df1$Row.names
+df1 <- df1[,!names(df1) %in% c("Row.names")]
+
+model_LCBD_var <- merge(df1, meta, by=0) %>%
+  dplyr::select(-Row.names)
+
+
+# Linear model + spatial smooths + random effects for region
+set.seed(10) #set a seed so this is repeatable
+mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
+              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+            method="REML", data=model_LCBD_var, select=TRUE, 
+            family=gaussian)
+
+visreg(mod1,'lake_catch_ratio', gg=T)+
+  ylab("n partial residuals")+
+  theme_classic()
+
+summary(mod1)
+appraise(mod1)
+gam.check(mod1)
+
+mod2 <- gam(richness ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
+              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+            method="REML", data=model_LCBD_var, select=TRUE, 
+            family=poisson(link = "log"))
+
+summary(mod2)
+appraise(mod2)
+gam.check(mod2)
+
+
+#### Summary of models
+## Pierre's idea!!
+modPred_res <-as.data.frame(rbind(
+  round(summary(mod1)$p.table, digits=4)[-1,],
+  round(summary(mod2)$p.table, digits=4)[-1,]))
+
+modPred_res$predictor <- rep(c(model_var[-1]))
+modPred_res$expl.var <- rep(c("LCBD", "richness"), each=10)
+colnames(modPred_res)<- c("coefficient", "SE", "z_value", "P_value","predictor","expl.var")
+
+modPred_res$coefficient<- as.numeric(as.character(modPred_res$coefficient))
+modPred_res$SE<- as.numeric(as.character(modPred_res$SE))
+modPred_res$sig <- "ns"
+modPred_res$sig[modPred_res$P_value < 0.1] <- "P<0.1"
+modPred_res$sig[modPred_res$P_value < 0.05] <- "P<0.05"
+modPred_res$sig[modPred_res$P_value < 0.01] <- "P<0.01"
+
+str(modPred_res)
+
+# Plot
+pltLCBD <- ggplot(modPred_res, aes(x=predictor, y=coefficient, col=sig))+
+  geom_pointrange(aes(ymin=coefficient-(1.96*SE), ymax=coefficient+(1.96*SE)))+
+  geom_hline(yintercept = 0, linetype=2)+
+  facet_wrap(~expl.var,nrow=1, scales='free_y')+
+  #scale_color_manual(values=c('grey80','grey60', 'grey30', 'black'))+
+  scale_color_brewer(palette='RdBu')+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=60, hjust=1), axis.title.x=element_blank())
+pltLCBD
+
+ggsave("figures/Fig2_gamLCBD_modplot.png", plot=pltLCBD, height=8, width=10,units="in",
+       dpi = 400)
+
+############################################
+#### GAM-IT
+## Fisher et al. 2020 (https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.4134)
+library(MuMIn)
+library(FSSgam)
+
+# Prepare dataset 
+#Load the data for the diatoms (response variable)
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
+diat <- diat[,-ncol(diat)] #last column is NAs
+
+# Read in geographical coordinates lakes
+spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
+meta <- read.csv("data/metamonth.csv", row.names = 1)
+
+##Select most abundant species across samples
+abund <- apply(diat, 2, max)
+diat <- diat[, abund>20] # present in >20 samples
+
+# Read most parsimonius CCA variables
+model_var <- read.csv("outputs/model_var.csv", row.names=1)
+
+#cat.preds <- c("SubCuenca", "Lake")
+cont.preds <- c("Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "Zmax_m",
+                "Pajonal", "lake_catch_ratio", "mix_event")
+null.cars <- c("Longitude", "Latitude")
+
+# Run base model
+set.seed(10) #set a seed so this is repeatable
+mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
+              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+            method="REML", data=model_LCBD_var, select=TRUE, 
+            family=gaussian)
+
+
+model.set <- generate.model.set(use.dat=model_LCBD_var,
+                                test.fit=mod1,
+                                pred.vars.cont=cont.preds,
+                                null.terms="s(Longitude, Latitude, k=5)")
+
+out.list <- fit.model.set(model.set)
+
+# examine the output
+names(out.list)
+out.list$failed.models
+length(out.list$success.models)
+mod.table=out.list$mod.data.out
+mod.table=mod.table[order(mod.table$AICc),]
+head(mod.table)
+
+# check the predictor correlation matrix
+model.set$predictor.correlations
+
+# now run the same thing using the non.linear correlation matrix
+model.set=generate.model.set(use.dat=model_LCBD_var,
+                             test.fit=mod1,
+                             pred.vars.cont=cont.preds,
+                             null.terms="s(Longitude, Latitude, k=5)",
+                             non.linear.correlations=TRUE)
+
+model.set$predictor.correlations
+out.list=fit.model.set(model.set)
+mod.table=out.list$mod.data.out
+mod.table=mod.table[order(mod.table$AICc),]
+head(mod.table)
+
+# Plot all the best models
+var.imp <- out.list$variable.importance$aic$variable.weights.raw
+all.less.2AICc <- mod.table[which(mod.table$delta.AICc<4),]
+#top.all <- all.less.2AICc
+
+# plot the all best models
+par(mfrow=c(5,4))
+#par(oma=c(1,1,4,1))
+for(r in 1:nrow(all.less.2AICc)){
+  best.model.name <- as.character(all.less.2AICc$modname[r])
+  best.model <- out.list$success.models[[best.model.name]]
+  if(best.model.name!="null"){
+    plot(best.model, all.terms=T, residuals=T,pch=16)
+    mtext(side=3,text="resp.vars[i]",outer=T)}
+}
+
+
+# Now run the GAM-IT model across species (individual responses)
+# Prepare data
+# diatoms are counts, species present in more than 20 samples
+diat_env <- merge(diat, model_var, by="row.names")
+row.names(diat_env) <- diat_env$Row.names
+
+diat_env <- merge(diat_env, meta, by="row.names")
+diat_env <- diat_env[,-1]
+
+row.names(diat_env) <- diat_env$Row.names
+diat_env <- merge(diat_env, spatial_var, by="row.names")
+diat_env <- diat_env[,-1]
+
+# make it long
+diatom_env_long <- diat_env %>%
+    gather(key = taxa, value = count, -names(model_var), -Row.names, -names(meta), -Latitude, -Longitude)
+
+# calculate relative abundance to plot seasonal variation of species
+diat_spp_month_ra <- diatom_env_long %>%
+  group_by(Row.names, taxa, Month, Lake) %>%
+  summarise(count = sum(count)) %>%
+  #filter(!count == "0" ) %>% #this is to remove empty samples (rows)
+  ungroup() %>%
+  group_by(Row.names, Month, Lake) %>%
+  mutate(relative_abundance_percent = count / sum(count) * 100) %>%
+  ungroup()
+
+# Plot
+spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_percent, x=Month)) +
+  geom_bar(position = "fill", stat="identity")+  #coord_flip() +
+  facet_wrap(Lake~., scales = "free") +
+  #scale_fill_viridis_d()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+spp.plot
+
+ggsave("outputs/spp_months_plot.png", 
+       plot=spp.plot, height=8, width=10,units="in",
+       dpi = 300)
+
+# set predictors
+cont.preds <- c("Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "Zmax_m",
+                "Pajonal", "lake_catch_ratio", "mix_event")
+#resp.vars <- c("Achnanthidium.affine", "Pseudostaurosira.santaremensis", "Discostella.stelligera")
+resp.vars <- names(diat_env[,c(2:19)])
+null.vars <- c("Longitude", "Latitude")
+
+setwd("C:/Users/xbenito/Documents/R/Cajas/outputs") #Set wd for storing the results
+
+# get rid of NA's and unused columns
+use.dat <- na.omit(diat_env[,c(null.vars,cont.preds,resp.vars)])
+
+out.all=list()
+var.imp=list()
+fss.all=list()
+top.all=list()
+
+i=1
+pdf(file="mod_fits_all.pdf",onefile=T)
+for(i in 1:length(resp.vars)){
+  
+  use.dat$response=use.dat[,resp.vars[i]]
+  #use.dat=diatom_env_long[which(diatom_env_long$taxa==resp.vars[i]),]
+  
+  #test.fit model for the particular diatom spp i
+  model1 <- uGamm(use.dat$response ~ Cond + Mg + K + Alkalinity + Si + Altitude + Zmax_m + Pajonal +
+                    lake_catch_ratio + mix_event + s(Latitude, Longitude, k=5),
+                  family=gaussian(),
+                  data=use.dat, lme4 = TRUE)
+  
+  model.set=generate.model.set(use.dat=use.dat,
+                               test.fit=model1,
+                               pred.vars.cont=cont.preds,
+                               null.terms = "s(Latitude, Longitude, k=5)")
+  
+  out.list=fit.model.set(model.set)
+  fss.all=c(fss.all,list(out.list))
+  mod.table=out.list$mod.data.out
+  mod.table=mod.table[order(mod.table$AICc),]
+  out.i=mod.table
+  out.all=c(out.all,list(out.i))
+  var.imp=c(var.imp,list(out.list$variable.importance$aic$variable.weights.raw))
+  all.less.2AICc=mod.table[which(mod.table$delta.AICc<4),]
+  top.all=c(top.all,list(all.less.2AICc))
+  
+  # plot the all best models
+  par(oma=c(1,1,4,1))
+  for(r in 1:nrow(all.less.2AICc)){
+    best.model.name=as.character(all.less.2AICc$modname[r])
+    best.model=out.list$success.models[[best.model.name]]
+    if(best.model.name!="null"){
+      plot.gam(best.model$gam, all.terms=T, pages=1,residuals=T,pch=16)
+      mtext(side=3,text=resp.vars[i],outer=T)}
+    dev.off()
+  }
+}
+
+
+names(out.all)=resp.vars
+names(var.imp)=resp.vars
+names(top.all)=resp.vars
+names(fss.all)=resp.vars
+
+all.mod.fits=do.call("rbind",out.all)
+all.var.imp=do.call("rbind",var.imp)
+top.mod.fits=do.call("rbind",top.all)
+
+require(car)
+require(doBy)
+require(gplots)
+require(RColorBrewer)
+
+pdf(file="var_importance.pdf",height=5,width=7,pointsize=10)
+heatmap.2(all.var.imp,notecex=0.4,  dendrogram ="none",
+          col=colorRampPalette(c("yellow","orange","red"))(30),
+          trace="none",key.title = "",keysize=2,
+          notecol="black",key=T,
+          sepcolor = "black",margins=c(12,14), lhei=c(3,10),lwid=c(3,10),
+          Rowv=FALSE,Colv=FALSE)
+dev.off()
+
+write.csv(all.mod.fits,"all_model_fits.csv")
+write.csv(top.mod.fits,"top_model_fits.csv")
+write.csv(all.var.imp,"all.var.imp.csv")
+
+
+# Make a nicer plot of variance importance scores
+all.var.imp <- data.frame(all.var.imp)
+all.var.imp$taxa <- row.names(all.var.imp)
+
+data.plt <- all.var.imp %>% gather(key=predictor, value=importance, -taxa)
+
+# Plotting theme
+Theme1 <-
+  theme( # use theme_get() to see available options
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill="white"),
+    legend.key = element_blank(), # switch off the rectangle around symbols in the legend
+    legend.text = element_text(size=8),
+    legend.title = element_text(size=8, face="bold"),
+    legend.position = "top",
+    legend.direction="horizontal",
+    text=element_text(size=10),
+    strip.text.y = element_text(size = 10,angle = 0),
+    axis.title.x=element_text(vjust=0.3, size=10),
+    axis.title.y=element_text(vjust=0.6, angle=90, size=10),
+    axis.text.x=element_text(size=10,angle = 90, hjust=1,vjust=0.5),
+    axis.text.y=element_text(size=10,face="italic"),
+    axis.line.x=element_line(colour="black", size=0.5,linetype='solid'),
+    axis.line.y=element_line(colour="black", size=0.5,linetype='solid'),
+    strip.background = element_blank())
+
+
+# colour ramps-
+re <- colorRampPalette(c("mistyrose", "red2","darkred"))(200)
+
+# Labels-
+legend_title<-"Importance"
+
+# Annotations-
+dat.taxa.label<-data.plt %>%
+  mutate(label=NA) %>%
+  mutate(label=ifelse(predictor=="K"&taxa=="Achnanthidium.minutissimum","X",
+                      ifelse(predictor=="mix_event"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="Zmax_m"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
+  mutate(label=ifelse(predictor=="Cond"&taxa=="Aulacoseira.alpigena","X",
+                      ifelse(predictor=="Si"&taxa=="Aulacoseira.alpigena","X",
+                             ifelse(predictor=="K"$taxa=="Aulacosira.alpgiena","X",label))))
+
+
+
+# Plot gg.importance.scores ----
+gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=resp.var,fill=importance))+
+  geom_tile(show.legend=T) +
+  scale_fill_gradientn(legend_title,colours=c("white", re), na.value = "grey98",
+                       limits = c(0, max(dat.taxa.label$importance)))+
+  scale_x_discrete(limits=c("Distance",
+                            "Status",
+                            "lobster",
+                            "snapper",
+                            "fetch",
+                            "org",
+                            "sqrt.X4mm",
+                            "sqrt.X2mm",
+                            "sqrt.X1mm",
+                            "sqrt.X500um"),
+                   labels=c(
+                     "Distance",
+                     "Status",
+                     "Lobster",
+                     "Snapper",
+                     "Fetch (km)",
+                     "Organic content",
+                     "Grain size: 4mm",
+                     "            2mm",
+                     "            1mm",
+                     "            500um"
+                   ))+
+  scale_y_discrete(limits = c("CPN",
+                              "BMS",
+                              "BDS"),
+                   labels=c("P. novizelandiae",
+                            "M. striata",
+                            "D. subrosea"))+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme_classic()+
+  Theme1+
+  geom_text(aes(label=label))
+gg.importance.scores
+
+
+
+
+
+
+
+# Manually make the most parsimonious GAM models for each taxa ----
+dat.ds <- diatom_env_long %>% filter(taxa=="Discostella.stelligera")
+
+# Model Discostella stelligera K+mix_event+Zmax_m
+mod <- gam(count ~ s(K,k=5) + s(mix_event,k=5) + s(Zmax_m,k=5), 
+           data=dat.ds, method="REML")
+
+# Predict 
+testdata <- expand.grid(K=seq(min(diatom_env_long$K),max(diatom_env_long$K)),
+                        mix_event=seq(min(diatom_env_long$mix_event),max(diatom_env_long$mix_event)),
+                        Zmax_m=seq(min(diatom_env_long$Zmax_m),max(diatom_env_long$Zmax_m), length.out=40))
+
+fits <- predict.gam(mod, newdata=testdata, type='response', se.fit=T)
+
+head(fits,2)
+predicts.bms.lobster = testdata%>%data.frame(fits)%>%
+  #group_by(lobster)%>% #only change here
+  summarise(response=mean(fit),se.fit=mean(se.fit))%>%
+  ungroup()
+           
+
