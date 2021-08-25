@@ -1,11 +1,11 @@
 ## GAM Models of LCBD or species richness against chemical, physical and spatial factors
-# Calculate LCBD 
 
 #Load libraries for functions used
 library(adespatial)
 library(tidyverse)
 library(mgcv)
 library(ggplot2)
+library(gratia)
 
 #Load the data for the diatoms
 diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
@@ -57,6 +57,9 @@ LCBDrich <- ggplot(data=LCBD_df, aes(x=richness, y=LCBD))+
 LCBDrich
 
 ## Prepare data to fit GAM model on LCBD
+# Read most parsimonius CCA variables
+model_var <- read.csv("outputs/model_var.csv", row.names=1)
+
 #merge by row.names with model var previously subset from CCA
 df1 <- merge(LCBD_df, model_var, by=0)
 row.names(df1) <- df1$Row.names
@@ -66,10 +69,10 @@ model_LCBD_var <- merge(df1, meta, by=0) %>%
   dplyr::select(-Row.names)
 
 
-# Linear model + spatial smooths + random effects for region
+# Linear model + spatial smooths of LCBD
 set.seed(10) #set a seed so this is repeatable
 mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
-              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+              K + Mg + Alkalinity + Si + Altitude + Zmax_m + wetland + secchi_m + mix_event,
             method="REML", data=model_LCBD_var, select=TRUE, 
             family=gaussian)
 
@@ -81,10 +84,11 @@ summary(mod1)
 appraise(mod1)
 gam.check(mod1)
 
+# Linear model + spatial smooths of species richness
 mod2 <- gam(richness ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
-              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+              K + Mg + Alkalinity + Si + Altitude + Zmax_m + wetland + secchi_m + mix_event,
             method="REML", data=model_LCBD_var, select=TRUE, 
-            family=poisson(link = "log"))
+            family=gaussian(link = "log"))
 
 summary(mod2)
 appraise(mod2)
@@ -93,11 +97,13 @@ gam.check(mod2)
 
 #### Summary of models
 ## Pierre's idea!!
+summary(mod1)$p.table
+
 modPred_res <-as.data.frame(rbind(
   round(summary(mod1)$p.table, digits=4)[-1,],
   round(summary(mod2)$p.table, digits=4)[-1,]))
 
-modPred_res$predictor <- rep(c(model_var[-1]))
+modPred_res$predictor <- rep(c("lake_catch_ratio", "K", "Mg", "Alkalinity", "Si", "Altitude", "Zmax_m", "wetland", "secchi_m", "mix_event")) #doesnt work
 modPred_res$expl.var <- rep(c("LCBD", "richness"), each=10)
 colnames(modPred_res)<- c("coefficient", "SE", "z_value", "P_value","predictor","expl.var")
 
@@ -115,14 +121,14 @@ pltLCBD <- ggplot(modPred_res, aes(x=predictor, y=coefficient, col=sig))+
   geom_pointrange(aes(ymin=coefficient-(1.96*SE), ymax=coefficient+(1.96*SE)))+
   geom_hline(yintercept = 0, linetype=2)+
   facet_wrap(~expl.var,nrow=1, scales='free_y')+
-  #scale_color_manual(values=c('grey80','grey60', 'grey30', 'black'))+
-  scale_color_brewer(palette='RdBu')+
+  #scale_color_manual(values=c('red','green', 'blue'))+
+  scale_color_brewer(palette='PRGn')+
   theme_bw()+
   theme(axis.text.x=element_text(angle=60, hjust=1), axis.title.x=element_blank())
 pltLCBD
 
-ggsave("figures/Fig2_gamLCBD_modplot.png", plot=pltLCBD, height=8, width=10,units="in",
-       dpi = 400)
+# ggsave("figures/Fig2_gamLCBD_modplot.png", plot=pltLCBD, height=8, width=10,units="in",
+#        dpi = 400)
 
 ############################################
 #### GAM-IT
@@ -147,22 +153,22 @@ diat <- diat[, abund>20] # present in >20 samples
 model_var <- read.csv("outputs/model_var.csv", row.names=1)
 
 #cat.preds <- c("SubCuenca", "Lake")
-cont.preds <- c("Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "Zmax_m",
-                "Pajonal", "lake_catch_ratio", "mix_event")
+cont.preds <- c("Ca", "Mg", "K", "Alkalinity", "Si", "Altitude", "Zmax_m",
+                "wetland", "secchi_m", "lake_catch_ratio", "mix_event")
 null.cars <- c("Longitude", "Latitude")
 
 # Run base model
 set.seed(10) #set a seed so this is repeatable
-mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + lake_catch_ratio +
-              K + Mg + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + mix_event,
+mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + Ca +
+              K + Mg + Alkalinity + Si + Altitude + Zmax_m + secchi_m + wetland + mix_event +lake_catch_ratio,
             method="REML", data=model_LCBD_var, select=TRUE, 
             family=gaussian)
 
 
 model.set <- generate.model.set(use.dat=model_LCBD_var,
                                 test.fit=mod1,
-                                pred.vars.cont=cont.preds,
-                                null.terms="s(Longitude, Latitude, k=5)")
+                                null.terms="s(Longitude, Latitude, k=5)",
+                                pred.vars.cont=cont.preds)
 
 out.list <- fit.model.set(model.set)
 
@@ -181,7 +187,7 @@ model.set$predictor.correlations
 model.set=generate.model.set(use.dat=model_LCBD_var,
                              test.fit=mod1,
                              pred.vars.cont=cont.preds,
-                             null.terms="s(Longitude, Latitude, k=5)",
+                             #null.terms="s(Longitude, Latitude, k=5)",
                              non.linear.correlations=TRUE)
 
 model.set$predictor.correlations
@@ -190,14 +196,28 @@ mod.table=out.list$mod.data.out
 mod.table=mod.table[order(mod.table$AICc),]
 head(mod.table)
 
+#extract coefficients from the model
+# https://stats.stackexchange.com/questions/341915/how-to-extract-confidence-interval-from-mgcv-gam-model
+
+pred <- "Ca"
+nms <- names(out.list$success.models)
+pred <- nms[16]
+
+# https://github.com/samclifford/mgcv.helper/tree/master/R 
+#library(mgcv.helper)
+library(dplyr)
+bond <- lapply(out.list$success.models, function(z) c(z$coeff, confint(z, parm=pred)))
+
+
+
 # Plot all the best models
 var.imp <- out.list$variable.importance$aic$variable.weights.raw
 all.less.2AICc <- mod.table[which(mod.table$delta.AICc<4),]
-#top.all <- all.less.2AICc
+top.all <- all.less.2AICc
 
 # plot the all best models
 par(mfrow=c(5,4))
-#par(oma=c(1,1,4,1))
+par(mar=c(1,2,2,1))
 for(r in 1:nrow(all.less.2AICc)){
   best.model.name <- as.character(all.less.2AICc$modname[r])
   best.model <- out.list$success.models[[best.model.name]]
@@ -210,6 +230,17 @@ for(r in 1:nrow(all.less.2AICc)){
 # Now run the GAM-IT model across species (individual responses)
 # Prepare data
 # diatoms are counts, species present in more than 20 samples
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
+diat <- diat[,-ncol(diat)] #last column is NAs
+
+# Read in geographical coordinates lakes
+spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
+meta <- read.csv("data/metamonth.csv", row.names = 1)
+
+##Select most abundant species across samples
+abund <- apply(diat, 2, max)
+diat <- diat[, abund>20] # present in >20 samples
+
 diat_env <- merge(diat, model_var, by="row.names")
 row.names(diat_env) <- diat_env$Row.names
 
@@ -243,18 +274,19 @@ spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_pe
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 spp.plot
 
-ggsave("outputs/spp_months_plot.png", 
-       plot=spp.plot, height=8, width=10,units="in",
-       dpi = 300)
+# ggsave("outputs/spp_months_plot.png", 
+#        plot=spp.plot, height=8, width=10,units="in",
+#        dpi = 300)
 
 # set predictors
-cont.preds <- c("Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "Zmax_m",
-                "Pajonal", "lake_catch_ratio", "mix_event")
+cont.preds <- c("Ca", "Mg", "K", "Alkalinity", "Si", "Altitude", "Zmax_m",
+                "wetland", "secchi_m", "lake_catch_ratio", "mix_event")
 #resp.vars <- c("Achnanthidium.affine", "Pseudostaurosira.santaremensis", "Discostella.stelligera")
 resp.vars <- names(diat_env[,c(2:19)])
 null.vars <- c("Longitude", "Latitude")
 
-setwd("C:/Users/xbenito/Documents/R/Cajas/outputs") #Set wd for storing the results
+#setwd("C:/Users/xbenito/Documents/R/Cajas/outputs") #Set wd for storing the results
+setwd("~/seasonal_diatom_cajas/outputs") #Set wd for storing the results in mac
 
 # get rid of NA's and unused columns
 use.dat <- na.omit(diat_env[,c(null.vars,cont.preds,resp.vars)])
@@ -269,10 +301,9 @@ pdf(file="mod_fits_all.pdf",onefile=T)
 for(i in 1:length(resp.vars)){
   
   use.dat$response=use.dat[,resp.vars[i]]
-  #use.dat=diatom_env_long[which(diatom_env_long$taxa==resp.vars[i]),]
-  
+
   #test.fit model for the particular diatom spp i
-  model1 <- uGamm(use.dat$response ~ Cond + Mg + K + Alkalinity + Si + Altitude + Zmax_m + Pajonal +
+  model1 <- uGamm(use.dat$response ~ Ca + Mg + K + Alkalinity + Si + Altitude + Zmax_m + wetland + secchi_m +
                     lake_catch_ratio + mix_event + s(Latitude, Longitude, k=5),
                   family=gaussian(),
                   data=use.dat, lme4 = TRUE)
@@ -300,10 +331,10 @@ for(i in 1:length(resp.vars)){
     if(best.model.name!="null"){
       plot.gam(best.model$gam, all.terms=T, pages=1,residuals=T,pch=16)
       mtext(side=3,text=resp.vars[i],outer=T)}
-    dev.off()
+    while (!is.null(dev.list()))  dev.off()
+    #dev.off()
   }
 }
-
 
 names(out.all)=resp.vars
 names(var.imp)=resp.vars
@@ -331,6 +362,15 @@ dev.off()
 write.csv(all.mod.fits,"all_model_fits.csv")
 write.csv(top.mod.fits,"top_model_fits.csv")
 write.csv(all.var.imp,"all.var.imp.csv")
+
+# Extract model averaged coeficients
+confint(fss.all[["Achnanthidium.affine"]][["success.models"]][["Ca"]][["gam"]], parm = "Ca")
+
+for (i in 1:length(fss.all)) {
+  bond <- lapply(out.list$success.models, function(z) c(z$coeff, confint(z, parm=pred)))
+  
+}
+
 
 
 # Make a nicer plot of variance importance scores
