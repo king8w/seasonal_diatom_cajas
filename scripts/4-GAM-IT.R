@@ -287,6 +287,7 @@ null.vars <- c("Longitude", "Latitude")
 
 #setwd("C:/Users/xbenito/Documents/R/Cajas/outputs") #Set wd for storing the results
 setwd("~/seasonal_diatom_cajas/outputs") #Set wd for storing the results in mac
+setwd("C:/Users/xbenito/Documents/R/seasonal_diatom_cajas/outputs") #Set wd for storing the results in mac
 
 # get rid of NA's and unused columns
 use.dat <- na.omit(diat_env[,c(null.vars,cont.preds,resp.vars)])
@@ -320,7 +321,7 @@ for(i in 1:length(resp.vars)){
   out.i=mod.table
   out.all=c(out.all,list(out.i))
   var.imp=c(var.imp,list(out.list$variable.importance$aic$variable.weights.raw))
-  all.less.2AICc=mod.table[which(mod.table$delta.AICc<4),]
+  all.less.2AICc=mod.table[which(mod.table$delta.AICc<2),]
   top.all=c(top.all,list(all.less.2AICc))
   
   # plot the all best models
@@ -363,25 +364,76 @@ write.csv(all.mod.fits,"all_model_fits.csv")
 write.csv(top.mod.fits,"top_model_fits.csv")
 write.csv(all.var.imp,"all.var.imp.csv")
 
-# Extract model averaged coeficients
-confint(fss.all[["Achnanthidium.affine"]][["success.models"]][["Ca"]][["gam"]], parm = "Ca")
-
-for (i in 1:length(fss.all)) {
-  bond <- lapply(out.list$success.models, function(z) c(z$coeff, confint(z, parm=pred)))
-  
+# Extract model averaged coefficients and point-wise confidence intervals
+Result <- list()
+for (i in seq_along(fss.all)) {
+  Result[[i]] <- lapply(fss.all[[i]]$success.models, function(z) c(z$gam$coeff, confint(z$gam, parm=z$terms)))
 }
-
+names(Result) <- names(fss.all)
 
 
 # Make a nicer plot of variance importance scores
+dat.taxa <-read.csv("outputs/all.var.importance.csv")
+
 all.var.imp <- data.frame(all.var.imp)
 all.var.imp$taxa <- row.names(all.var.imp)
 
 data.plt <- all.var.imp %>% gather(key=predictor, value=importance, -taxa)
 
+
+# colour ramps-
+#re <- colorRampPalette(c("mistyrose", "red2","darkred"))(200)
+re <- colorRampPalette(brewer.pal(8, "Blues"))(25)
+
+# Labels
+legend_title<-"Variable Importance"
+
+# Annotations of the top model for each species
+dat.taxa.label<-data.plt %>%
+  mutate(label=NA) %>%
+  mutate(label=ifelse(predictor=="K"&taxa=="Achnanthidium.minutissimum","X",
+                      ifelse(predictor=="Ca"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="secchi_m"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
+  mutate(label=ifelse(predictor=="Altitude"&taxa=="Aulacoseira.alpigena","X",
+                      ifelse(predictor=="wetland"&taxa=="Aulacoseira.alpigena","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Aulacoseira.alpigena","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Aulacoseira.distans.septentrionalis","X",
+                      ifelse(predictor=="wetland"&taxa=="Aulacoseira.distans.septentrionalis","X",label))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Diatoma.tenuis","X",
+                      ifelse(predictor=="Si"&taxa=="Diatoma.tenuis","X",label))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Discostella.stelligera","X",
+                      ifelse(predictor=="Si"&taxa=="Discostella.stelligera","X",
+                      ifelse(predictor=="wetland"&taxa=="Discostella.stelligera","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Fragilaria.tenera","X",
+                      ifelse(predictor=="K"&taxa=="Fragilaria.tenera","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Fragilaria.tenera","X",label)))) %>%
+  mutate(label=ifelse(predictor=="K"&taxa=="Navicula.notha","X",
+                      ifelse(predictor=="mix_event"&taxa=="Navicula.notha","X",
+                      ifelse(predictor=="Si"&taxa=="Navicula.notha","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Zmax_m"&taxa=="Navicula.radiosa","X",
+                      ifelse(predictor=="wetland"&taxa=="Navicula.radiosa","X",label))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.Atucyacu.1","X",
+                      ifelse(predictor=="Si"&taxa=="Nitzschia.Atucyacu.1","X",
+                      ifelse(predictor=="wetland"&taxa=="Nitzschia.Atucyacu.1","X",label)))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.cf.oberheimiana","X",
+                      ifelse(predictor=="secchi_m"&taxa=="Nitzschia.cf.oberheimiana","X",label))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Pseudostaurosira.laucensis","X",
+                      ifelse(predictor=="wetland"&taxa=="Pseudostaurosira.laucensis","X",label))) %>%
+  mutate(label=ifelse(predictor=="secchi_m"&taxa=="Pseudostaurosira.santamarensis","X",
+                      ifelse(predictor=="Si"&taxa=="Pseudostaurosira.laucensis","X",label))) %>%
+  mutate(label=ifelse(predictor=="Zmax_m"&taxa=="Staurosirella_pinnata","X",
+                      ifelse(predictor=="mix_event"&taxa=="Staurosirella_pinnata","X",label))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Staurosirella.sp.2", "X", label)) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Tabellaria.fenestrata","X",
+                      ifelse(predictor=="wetland"&taxa=="Tabellaria.fenestrata","X",label))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Tabellaria.flocculosa","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Tabellaria.flocculosa","X",label))) %>%
+  mutate(label=ifelse(predictor=="Altitude"&taxa=="Ulnaria.delicatissima","X",
+                      ifelse(predictor=="wetland"&taxa=="Ulnaria.delicatissima","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Ulnaria.delicatissima","X",label)))) 
+  
 # Plotting theme
 Theme1 <-
-  theme( # use theme_get() to see available options
+  theme( 
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     legend.background = element_rect(fill="white"),
@@ -391,66 +443,45 @@ Theme1 <-
     legend.position = "top",
     legend.direction="horizontal",
     text=element_text(size=10),
-    strip.text.y = element_text(size = 10,angle = 0),
-    axis.title.x=element_text(vjust=0.3, size=10),
-    axis.title.y=element_text(vjust=0.6, angle=90, size=10),
-    axis.text.x=element_text(size=10,angle = 90, hjust=1,vjust=0.5),
+    #strip.text.y = element_text(size = 10,angle = 0),
+    #axis.title.x=element_text(vjust=0.3, size=10),
+    #axis.title.y=element_text(vjust=0.6, angle=90, size=10),
+    axis.text.x=element_text(size=10,angle=45, hjust=1,vjust=1),
     axis.text.y=element_text(size=10,face="italic"),
     axis.line.x=element_line(colour="black", size=0.5,linetype='solid'),
     axis.line.y=element_line(colour="black", size=0.5,linetype='solid'),
     strip.background = element_blank())
 
-
-# colour ramps-
-re <- colorRampPalette(c("mistyrose", "red2","darkred"))(200)
-
-# Labels-
-legend_title<-"Importance"
-
-# Annotations-
-dat.taxa.label<-data.plt %>%
-  mutate(label=NA) %>%
-  mutate(label=ifelse(predictor=="K"&taxa=="Achnanthidium.minutissimum","X",
-                      ifelse(predictor=="mix_event"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="Zmax_m"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
-  mutate(label=ifelse(predictor=="Cond"&taxa=="Aulacoseira.alpigena","X",
-                      ifelse(predictor=="Si"&taxa=="Aulacoseira.alpigena","X",
-                             ifelse(predictor=="K"$taxa=="Aulacosira.alpgiena","X",label))))
-
-
-
-# Plot gg.importance.scores ----
-gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=resp.var,fill=importance))+
+# Plot gg.importance.score
+gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=taxa,fill=importance))+
   geom_tile(show.legend=T) +
-  scale_fill_gradientn(legend_title,colours=c("white", re), na.value = "grey98",
-                       limits = c(0, max(dat.taxa.label$importance)))+
-  scale_x_discrete(limits=c("Distance",
-                            "Status",
-                            "lobster",
-                            "snapper",
-                            "fetch",
-                            "org",
-                            "sqrt.X4mm",
-                            "sqrt.X2mm",
-                            "sqrt.X1mm",
-                            "sqrt.X500um"),
+   scale_fill_gradientn(legend_title,colours=c("white", re), na.value = "grey98",
+                        limits = c(0, max(dat.taxa.label$importance)))+
+  scale_x_discrete(limits=c("Alkalinity",
+                            "Ca",
+                            "Mg",
+                            "K",
+                            "Si",
+                            "Altitude",
+                            "Zmax_m",
+                            "secchi_m",
+                            "lake_catch_ratio",
+                            "mix_event",
+                            "wetland"),
                    labels=c(
-                     "Distance",
-                     "Status",
-                     "Lobster",
-                     "Snapper",
-                     "Fetch (km)",
-                     "Organic content",
-                     "Grain size: 4mm",
-                     "            2mm",
-                     "            1mm",
-                     "            500um"
-                   ))+
-  scale_y_discrete(limits = c("CPN",
-                              "BMS",
-                              "BDS"),
-                   labels=c("P. novizelandiae",
-                            "M. striata",
-                            "D. subrosea"))+
+                     "Alkalinity (µeq /L)",
+                     "Calcium (µeq /L)",
+                     "Magnesium (µeq /L)",
+                     "Potassium (µeq /L)",
+                     "Silica (µmol /L)",
+                     "Altitude (m)",
+                     "Z max (m)",
+                     "Secchi disk (m)",
+                     "Lake/ Catchment area ratio",
+                     "Mix event (degrees)",
+                     "Wetland (%)"))+
+  # scale_y_discrete(limits = c(""),
+  #                  labels=c(""))+
   xlab(NULL)+
   ylab(NULL)+
   theme_classic()+
@@ -458,9 +489,9 @@ gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=resp.var,fill=i
   geom_text(aes(label=label))
 gg.importance.scores
 
-
-
-
+# Save the plot
+ggsave("GAM_IT_varimportance.png", plot=gg.importance.scores, height=8, width=10,units="in",
+        dpi = 400)
 
 
 
@@ -468,18 +499,18 @@ gg.importance.scores
 dat.ds <- diatom_env_long %>% filter(taxa=="Discostella.stelligera")
 
 # Model Discostella stelligera K+mix_event+Zmax_m
-mod <- gam(count ~ s(K,k=5) + s(mix_event,k=5) + s(Zmax_m,k=5), 
+mod.ds <- gam(count ~ s(Si,k=5) + s(wetland,k=5) + s(lake_catch_ratio,k=5), 
            data=dat.ds, method="REML")
 
 # Predict 
-testdata <- expand.grid(K=seq(min(diatom_env_long$K),max(diatom_env_long$K)),
-                        mix_event=seq(min(diatom_env_long$mix_event),max(diatom_env_long$mix_event)),
-                        Zmax_m=seq(min(diatom_env_long$Zmax_m),max(diatom_env_long$Zmax_m), length.out=40))
+testdata <- expand.grid(Si=mean(mod.ds$model$Si),
+                        wetland=mean(mod.ds$model$wetland),
+                        lake_catch_ratio=(mod.ds$model$lake_catch_ratio))
 
-fits <- predict.gam(mod, newdata=testdata, type='response', se.fit=T)
+fits <- predict.gam(mod.ds, newdata=testdata, type='response', se.fit=T)
 
 head(fits,2)
-predicts.bms.lobster = testdata%>%data.frame(fits)%>%
+predicts. = testdata%>%data.frame(fits)%>%
   #group_by(lobster)%>% #only change here
   summarise(response=mean(fit),se.fit=mean(se.fit))%>%
   ungroup()
