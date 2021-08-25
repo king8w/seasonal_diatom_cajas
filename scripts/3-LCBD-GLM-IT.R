@@ -4,9 +4,79 @@
 #Load functions (from Carles Alcaraz)
 source("scripts/functions/IC.model.inference.R") 
 
+#Load libraries for functions used
+library(adespatial)
+library(tidyverse)
+library(mgcv)
+library(ggplot2)
+library(car)
+library(nortest)
+
+## Calculate LCBD 
+#Load the data for the diatoms
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
+diat <- diat[,-ncol(diat)] #last column is NAs
+
+# Read in geographical coordinates lakes
+spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
+meta <- read.csv("data/metamonth.csv", row.names = 1)
+
+##Transform to relative abundance
+total <- apply(diat, 1, sum)
+diat <- diat/total*100
+
+##Remove rare species
+abund <- apply(diat, 2, max)
+n.occur <- apply(diat>0, 2, sum)
+diat <- diat[, n.occur>1 & abund>2] #more than 3% of RA and present in >1 sample
+
+# Perform LCBD
+diatomsLCBD <- beta.div(diat, method = "hellinger", nperm = 999, adj = TRUE, sqrt.D=FALSE)
+
+## plot a map of the LCBD indices
+LCBD <- data.frame(diatomsLCBD$LCBD)
+LCBD$Longitude <- spatial_var$Longitude
+LCBD$Latitude <- spatial_var$Latitude
+colnames(LCBD)[1] <- c("LCBD")
+LCBD$sign <- data.frame(diatomsLCBD$p.LCBD)
+colnames(LCBD[,4]) <- "sign"
+LCBD$sign.ad <- data.frame(diatomsLCBD$p.adj)
+
+#richness calculation
+richness<- apply(diat>0,1,sum)
+
+#LCBD - richness relationship
+LCBD$richness <- richness
+plot(LCBD$richness, LCBD$LCBD)
+cor.test(LCBD$richness, LCBD$LCBD, method = "spearman")
+
+LCBD_df <- data.frame(LCBD)
+
+# Plot LCBD-species richness
+LCBDrich <- ggplot(data=LCBD_df, aes(x=richness, y=LCBD))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  #annotate("text", x = 35, y = 0.0065, label = "")+
+  #annotate("text", x = 35, y = 0.0064, label = "italic(p) < 0.01", parse=TRUE)+
+  xlab("Species richness")+
+  theme_bw()
+LCBDrich
+
+## Prepare data to fit GAM model on LCBD
+# Read most parsimonius CCA variables
+model_var <- read.csv("outputs/model_var.csv", row.names=1)
+
+#merge by row.names with model var previously subset from CCA
+df1 <- merge(LCBD_df, model_var, by=0)
+row.names(df1) <- df1$Row.names
+df1 <- df1[,!names(df1) %in% c("Row.names")]
+
+model_LCBD_var <- merge(df1, meta, by=0) %>%
+  dplyr::select(-Row.names)
+
 #Load GLM variables and select from database
-model_var <- c("LCBD", "Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "Zmax_m", "Pajonal", 
-               "lake_catch_ratio", "mix_event")  
+model_var <- c("LCBD", "Mg", "K", "Alkalinity", "Si", "Altitude", "Zmax_m", 
+               "lake_catch_ratio", "mix_event", "secchi_m", "wetland")  
 modelGLM_var <- model_LCBD_var[, (names(model_LCBD_var) %in% model_var)]
 
 #Perform GLM_IT analysis
@@ -87,10 +157,10 @@ Evaluation.plot(X.var = "LCBD", Y.var = "LCBD", Graph.data, Model.eval, Graphs =
 ############################################
 ### GLM-IT
 ## Approach 2 from Feld et al. 2016 STOTEN multistressor
+library(lme4)
 model_LCBD_var_2 <- transform(model_LCBD_var, SubCuenca=factor(SubCuenca))
-
-mod1 <- lmer(LCBD ~ Mg + K + Alkalinity + Cond + Si + Altitude + Zmax_m + Pajonal + lake_catch_ratio +
-                mix_event + (1|SubCuenca),  data=model_LCBD_var_2) 
+mod1 <- glmer(LCBD ~ Mg + K + Alkalinity + Si + Altitude + Zmax_m + secchi_m + wetland + lake_catch_ratio +
+                mix_event + (1|SubCuenca), family = poisson,  data=model_LCBD_var_2) 
 
 # Calculate all possible models with different combinations
 options(na.action="na.fail") #necessary to run dredge()
@@ -131,7 +201,5 @@ my.coord.listw <- nb2listw (coord.nb, glist=NULL, style="W",
                             zero.policy=FALSE)
 
 moran.test (as.vector (model1.res2), my.coord.listw)
-
-
 
 
