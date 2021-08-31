@@ -118,16 +118,16 @@ C.value <- 0.95
 D.value <- 7
 
 #Define all possible combinations
-Mod.reg <- IC.selection(Global.model, IC.sel = IC.rank, C.hat = 1000, IC.max.var = NA, IC.fix.var = NULL, beta = FALSE, IC.save = "IC.model.results.txt", IC.coef = FALSE)
+Mod.reg <- IC.selection(Global.model, IC.sel = IC.rank, C.hat = 1000, IC.max.var = NA, IC.fix.var = NULL, beta = TRUE, IC.save = "IC.model.results.txt", IC.coef = FALSE)
 
 #Define all possible combinations
-Mod.reg <- IC.selection(Global.model, IC.sel = IC.rank, C.hat = 1000, IC.max.var = NA, IC.fix.var = NULL, beta = FALSE, IC.save = "IC.model.results.txt", IC.coef = FALSE)
+Mod.reg <- IC.selection(Global.model, IC.sel = IC.rank, C.hat = 1000, IC.max.var = NA, IC.fix.var = NULL, beta = TRUE, IC.save = "IC.model.results.txt", IC.coef = FALSE)
 
 #Perform Likelihood ratio test to evaluate models that perform better than the null model
 Mod.reg <- Likelihood.test(Mod.reg, Global.model, LH.deletion = TRUE, LH.alpha = 0.05, LH.save = "Likelihood.selected.models.txt", LH.analysis = "Likelihood.results.txt") 
 
 #Perform VIF test to evaluate collinearity effects
-Mod.reg <- VIF.evaluation(Mod.reg, Global.model, beta = FALSE, VIF.deletion = TRUE, VIF.value = 5, VIF.save = "VIF.selected.models.txt", VIF.analysis = "VIF.results.txt")
+Mod.reg <- VIF.evaluation(Mod.reg, Global.model, beta = TRUE, VIF.deletion = TRUE, VIF.value = 5, VIF.save = "VIF.selected.models.txt", VIF.analysis = "VIF.results.txt")
 
 #Select models
 #Selection based on delta AIC
@@ -139,14 +139,14 @@ Mod.reg <- Subset.models(Mod.reg, subset = Delta < D.value, sub.save = "IC.model
 Models <- Extract.models(Mod.reg)
 
 #Model averaging
-Mod.reg <- Average.models(Models, IC.sel = IC.rank, C.hat = 1000, beta = FALSE, na.values = c("NA"), alpha = 0.05, Avm.save = "Average.model.results.txt")
+Mod.reg <- Average.models(Models, IC.sel = IC.rank, C.hat = 1000, beta = TRUE, na.values = c("NA"), alpha = 0.05, Avm.save = "Average.model.results.txt")
 print(Mod.reg)
 
 #Compute model evaluation data: residuals and fitted values
 Model.eval <- Models.evaluation(Global.model, Models, Mod.reg, IC.sel = IC.rank, C.hat = 1000, na.values = c("NA"), Eval.save = "Models.evaluation.results.txt")
 
 #Compute parameter estimation bias
-Bias.models(Mod.reg, Global.model, Bias.save = "Models.parameters.bias.txt")
+Bias.models(Mod.reg, Global.model, g.Beta = FALSE, Bias.save = "Models.parameters.bias.txt")
 
 #Perform model evaluation graphs
 Graph.data <- model_LCBD_var

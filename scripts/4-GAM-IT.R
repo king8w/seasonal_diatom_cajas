@@ -131,7 +131,7 @@ pltLCBD
 #        dpi = 400)
 
 ############################################
-#### GAM-IT
+#### GAM-IT-single model inference. It doesn't average 
 ## Fisher et al. 2020 (https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.4134)
 library(MuMIn)
 library(FSSgam)
@@ -163,7 +163,6 @@ mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + Ca +
               K + Mg + Alkalinity + Si + Altitude + Zmax_m + secchi_m + wetland + mix_event +lake_catch_ratio,
             method="REML", data=model_LCBD_var, select=TRUE, 
             family=gaussian)
-
 
 model.set <- generate.model.set(use.dat=model_LCBD_var,
                                 test.fit=mod1,
@@ -197,12 +196,7 @@ mod.table=mod.table[order(mod.table$AICc),]
 head(mod.table)
 
 #extract coefficients from the model
-# https://stats.stackexchange.com/questions/341915/how-to-extract-confidence-interval-from-mgcv-gam-model
-
 pred <- "Ca"
-nms <- names(out.list$success.models)
-pred <- nms[16]
-
 # https://github.com/samclifford/mgcv.helper/tree/master/R 
 #library(mgcv.helper)
 library(dplyr)
@@ -227,7 +221,7 @@ for(r in 1:nrow(all.less.2AICc)){
 }
 
 
-# Now run the GAM-IT model across species (individual responses)
+### Now run the GAM-IT model across species (individual responses)
 # Prepare data
 # diatoms are counts, species present in more than 20 samples
 diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
@@ -241,12 +235,15 @@ meta <- read.csv("data/metamonth.csv", row.names = 1)
 abund <- apply(diat, 2, max)
 diat <- diat[, abund>20] # present in >20 samples
 
+# Merge diatom data the most parsimonious variables selected by CCA
 diat_env <- merge(diat, model_var, by="row.names")
 row.names(diat_env) <- diat_env$Row.names
 
+# Merge diatom data lake metadata
 diat_env <- merge(diat_env, meta, by="row.names")
 diat_env <- diat_env[,-1]
 
+# Pass row.names 
 row.names(diat_env) <- diat_env$Row.names
 diat_env <- merge(diat_env, spatial_var, by="row.names")
 diat_env <- diat_env[,-1]
@@ -296,9 +293,10 @@ out.all=list()
 var.imp=list()
 fss.all=list()
 top.all=list()
+best.model=list()
 
 i=1
-pdf(file="mod_fits_all.pdf",onefile=T)
+#pdf(file="mod_fits_all.pdf",onefile=T)
 for(i in 1:length(resp.vars)){
   
   use.dat$response=use.dat[,resp.vars[i]]
@@ -317,23 +315,26 @@ for(i in 1:length(resp.vars)){
   out.list=fit.model.set(model.set)
   fss.all=c(fss.all,list(out.list))
   mod.table=out.list$mod.data.out
+  
   mod.table=mod.table[order(mod.table$AICc),]
   out.i=mod.table
   out.all=c(out.all,list(out.i))
   var.imp=c(var.imp,list(out.list$variable.importance$aic$variable.weights.raw))
   all.less.2AICc=mod.table[which(mod.table$delta.AICc<2),]
+  #out.list.top=success.spp$all.less.2AICc$modname #take less2AICc model names
   top.all=c(top.all,list(all.less.2AICc))
   
-  # plot the all best models
-  par(oma=c(1,1,4,1))
+
+  #dev.new(width=4,height=6)
+  par(mfrow=c(length(resp.vars),1),oma=c(1,1,4,1))
+
   for(r in 1:nrow(all.less.2AICc)){
-    best.model.name=as.character(all.less.2AICc$modname[r])
-    best.model=out.list$success.models[[best.model.name]]
-    if(best.model.name!="null"){
-      plot.gam(best.model$gam, all.terms=T, pages=1,residuals=T,pch=16)
-      mtext(side=3,text=resp.vars[i],outer=T)}
-    while (!is.null(dev.list()))  dev.off()
-    #dev.off()
+  best.model.name <- as.character(all.less.2AICc$modname[r])
+  best.model[r] <- fss.all[[resp.vars[i]]]$success.models[[best.model.name]]
+  plot.best.model <- out.list$success.models[[best.model.name]]
+    #if(plot.best.model!="null"){
+      plot.gam(plot.best.model$gam, all.terms=T, pages=1,residuals=T,pch=16)
+      mtext(side=3,text=resp.vars[i],outer=T)
   }
 }
 
@@ -341,10 +342,43 @@ names(out.all)=resp.vars
 names(var.imp)=resp.vars
 names(top.all)=resp.vars
 names(fss.all)=resp.vars
+names(best.model)=resp.vars
 
 all.mod.fits=do.call("rbind",out.all)
 all.var.imp=do.call("rbind",var.imp)
 top.mod.fits=do.call("rbind",top.all)
+
+## Extract model averaged coefficients and point-wise confidence intervals
+# Subset the top models for each species
+top.mod.fits.achaffine <- top.mod.fits %>%
+  filter(str_detect(row.names(top.mod.fits), "affine"))
+
+top.mod.fits.achaffine <- fss.all[["Achnanthidium.affine"]][["success.models"]][1:12] 
+bond <- lapply(top.mod.fits.achaffine, function(z) c(z$coeff, confint(z, parm=z$terms)))
+
+##
+Result <- list()
+for (i in seq_along(fss.all)) {
+  Result[[i]] <- lapply(fss.all[[i]]$success.models, 
+                        function(z) c(z$gam$coeff, confint(z$gam, parm=z$terms)))
+}
+names(Result) <- names(fss.all)
+
+##
+Result <- list()
+for (i in seq_along(fss.all)) {
+  Result[[i]] <- lapply(fss.all[[i]]$success.models[names(top.mod.fits.achaffine)], 
+                        function(z) c(z$gam$coeff, confint(z$gam, parm=z$gam$terms[[3]])))
+}
+names(Result) <- names(fss.all)
+
+##
+Result <- list()
+for (i in seq_along(top.mod.fits.achaffine)) {
+  Result <- lapply(top.mod.fits.achaffine, 
+                        function(z) c(z$gam$coeff, confint(z$gam, parm=z$gam$terms[[3]])))
+}
+names(Result) <- names(fss.all)
 
 require(car)
 require(doBy)
@@ -364,12 +398,8 @@ write.csv(all.mod.fits,"all_model_fits.csv")
 write.csv(top.mod.fits,"top_model_fits.csv")
 write.csv(all.var.imp,"all.var.imp.csv")
 
-# Extract model averaged coefficients and point-wise confidence intervals
-Result <- list()
-for (i in seq_along(fss.all)) {
-  Result[[i]] <- lapply(fss.all[[i]]$success.models, function(z) c(z$gam$coeff, confint(z$gam, parm=z$terms)))
-}
-names(Result) <- names(fss.all)
+# save results
+saveRDS(fss.all, "spp_GAM_IT.rds")
 
 
 # Make a nicer plot of variance importance scores

@@ -77,6 +77,7 @@ pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.pane
 #Check adequacy of PCA ordination
 source("scripts/pcor.test.R")
 
+# set PCA df to analyze
 PCA_data <- env_trans
 
 # drop variables that do not have monthly observations
@@ -309,8 +310,9 @@ legend("bottomleft",c("June", "September", "December", "February")
 #        ncol = 1, xpd = TRUE)
 
 
-###
-# Constrained multivariate ordination
+
+#####
+##  Constrained multivariate ordination
 ### Test for unique contributions
 
 # PCA_data <- PCA_data_yearly[,2:ncol(PCA_data_yearly)] %>%
@@ -347,6 +349,8 @@ model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2")]
 write.csv(model_var, "outputs/model_var.csv")  
 
 # Perform CCA
+diat <- decostand(diat, method="hellinger")
+
 mod_cca <- cca(diat~., data=model_var, scale=TRUE)
 plot(mod_cca, scaling = 3)
 
@@ -429,7 +433,7 @@ cor <- corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:16,ncol(CCA_res
 
 # Triplot
 dev.off()
-png("outputs/CCA_new.png", width=10, height=8, units="in", res=300)
+png("outputs/CCA_cajas_diatoms_new.png", width=10, height=8, units="in", res=300)
 
 op <- par(no.readonly = TRUE)
 par(fig = c(0, 0.5, 0, 0.95))
@@ -450,8 +454,23 @@ par(fig = c(0.5, 1, 0, 0.95), new = TRUE)
 plot(mod_cca, type = "none", scaling = 3, ylab = "")
 title("Species")
 #points(mod_cca$CCA$v[,1:2])
+
+#customize species scores by ecological groups
+#from TAXA
+eco.groups <- c("benthic", "benthic", "planktic", "planktic", "planktic", "benthic", "benthic", "benthic", "planktic", "benthic",
+                "benthic", "benthic", "benthic", "tychoplanktic", "tychoplanktic", "benthic", "benthic", "benthic", "benthic", "benthic",
+                "benthic", "benthic", "benthic", "benthic", "benthic", "tychoplanktic", "tychoplanktic", "tychoplanktic", "tychoplanktic",
+                "tychoplanktic", "tychoplanktic", "tychoplanktic", "tychoplanktic", "tychoplanktic")
+
 text(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), labels = row.names(mod_cca$CCA$v[,1:2]), pos = 1, cex = 0.5, offset = 0.2)
-par(fig = c(0.41, 0.65, 0.6, 0.95), new = TRUE)
+points(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), pch=as.numeric(as.factor(eco.groups)), cex = 0.8)
+#points(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), col=as.factor(eco.groups), cex = 0.5)
+
+legend("bottomleft",c("Benthic", "Planktic", "Tychoplanktic"),
+       cex=.7, pch=c(1,2,3),
+       ncol = 1, xpd = TRUE)
+
+par(fig = c(0.51, 0.72, 0.7, 0.99), new = TRUE)
 par(mar = c(0, 0, 0, 0))
 bp <- scores(mod_cca, display = "bp", scaling = 3)
 plot(bp, type = "n", axes = FALSE, asp = 1)
@@ -463,6 +482,35 @@ box()
 par(op)
 #save plot
 dev.off()
+
+### Visually explore species-environment relationships
+op <- par(no.readonly = TRUE)
+par(mfrow = c(6, 6))
+par(mar = c(2.5, 3.5, 1, 0.5))
+par(mgp = c(1.5, 0.5, 0))
+par(oma = c(0, 0, 3, 0))
+
+var <- c("wetland")
+for (i in 1:length(diat)) {
+  plot(diat[, i] ~ env_trans[, var], ann = F, cex = 0.6, cex.axis = 0.8,
+       tcl = -0.4, las = 1, pch = 19, )
+  mtext(colnames(diat)[i], side = 3, line = 0.2, cex = 0.6)
+}
+mtext("Diatom distribution vs. log 10 Secchi disk (m)", outer = TRUE,
+      side = 3, cex = 1.2, line = 1)
+par(op)
+
+### Model spp-environment with GAMs
+source("scripts/functions/model.gams.R")
+
+# Select variable to model with GAM
+var <- "mix_event"
+env_var <- model_var[,var]
+
+# Run the function
+models.gam(diat,env_var, title = "Diatom distribution vs")
+
+
 
 ### CCA forward-step model selection
 # Environmental variables
@@ -504,3 +552,4 @@ text(locator(), c("Environmental","Spatial", "Physical"), cex=1)
 anova.cca(rda(diat, env.sel, cbind(spatial.sel, physical.sel)), perm.max = 999) ## test pure environmental (signif 0.05)
 anova.cca(rda(diat, spatial.sel, cbind(env.sel, physical.sel)), perm.max = 999) ## test pure spatial (signif 0.005)  
 anova.cca(rda(diat, physical.sel, cbind(env.sel, spatial.sel)), perm.max = 999) ## test pure physical effect (signif 0.005)  
+
