@@ -224,8 +224,7 @@ for(r in 1:nrow(all.less.2AICc)){
 ### Now run the GAM-IT model across species (individual responses)
 # Prepare data
 # diatoms are counts, species present in more than 20 samples
-diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
-diat <- diat[,-ncol(diat)] #last column is NAs
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep = ";")
 
 # Read in geographical coordinates lakes
 spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
@@ -236,29 +235,26 @@ abund <- apply(diat, 2, max)
 diat <- diat[, abund>20] # present in >20 samples
 
 # Merge diatom data the most parsimonious variables selected by CCA
-diat_env <- merge(diat, model_var, by="row.names")
-row.names(diat_env) <- diat_env$Row.names
 
-# Merge diatom data lake metadata
-diat_env <- merge(diat_env, meta, by="row.names")
-diat_env <- diat_env[,-1]
+diat <- diat[order(row.names(diat)),]
+model_var <- model_var[order(row.names(model_var)),]
+meta <- meta[order(row.names(meta)),]
+spatial_var <- spatial_var[order(row.names(spatial_var)),]
 
-# Pass row.names 
-row.names(diat_env) <- diat_env$Row.names
-diat_env <- merge(diat_env, spatial_var, by="row.names")
-diat_env <- diat_env[,-1]
+diat_env <- cbind(diat, model_var, meta, spatial_var)
+
 
 # make it long
 diatom_env_long <- diat_env %>%
-    gather(key = taxa, value = count, -names(model_var), -Row.names, -names(meta), -Latitude, -Longitude)
+    gather(key = taxa, value = count, -names(model_var), -names(meta), -Latitude, -Longitude)
 
 # calculate relative abundance to plot seasonal variation of species
 diat_spp_month_ra <- diatom_env_long %>%
-  group_by(Row.names, taxa, Month, Lake) %>%
+  group_by(taxa, Month, Lake) %>%
   summarise(count = sum(count)) %>%
   #filter(!count == "0" ) %>% #this is to remove empty samples (rows)
   ungroup() %>%
-  group_by(Row.names, Month, Lake) %>%
+  group_by(Month, Lake) %>%
   mutate(relative_abundance_percent = count / sum(count) * 100) %>%
   ungroup()
 
@@ -296,7 +292,7 @@ top.all=list()
 best.model=list()
 
 i=1
-#pdf(file="mod_fits_all.pdf",onefile=T)
+pdf(file="mod_fits_all.pdf",onefile=T)
 for(i in 1:length(resp.vars)){
   
   use.dat$response=use.dat[,resp.vars[i]]
@@ -335,6 +331,7 @@ for(i in 1:length(resp.vars)){
     #if(plot.best.model!="null"){
       plot.gam(plot.best.model$gam, all.terms=T, pages=1,residuals=T,pch=16)
       mtext(side=3,text=resp.vars[i],outer=T)
+      #dev.off()
   }
 }
 
@@ -349,14 +346,7 @@ all.var.imp=do.call("rbind",var.imp)
 top.mod.fits=do.call("rbind",top.all)
 
 ## Extract model averaged coefficients and point-wise confidence intervals
-# Subset the top models for each species
-top.mod.fits.achaffine <- top.mod.fits %>%
-  filter(str_detect(row.names(top.mod.fits), "affine"))
-
-top.mod.fits.achaffine <- fss.all[["Achnanthidium.affine"]][["success.models"]][1:12] 
-bond <- lapply(top.mod.fits.achaffine, function(z) c(z$coeff, confint(z, parm=z$terms)))
-
-##
+##All
 Result <- list()
 for (i in seq_along(fss.all)) {
   Result[[i]] <- lapply(fss.all[[i]]$success.models, 
@@ -364,22 +354,30 @@ for (i in seq_along(fss.all)) {
 }
 names(Result) <- names(fss.all)
 
-##
-Result <- list()
-for (i in seq_along(fss.all)) {
-  Result[[i]] <- lapply(fss.all[[i]]$success.models[names(top.mod.fits.achaffine)], 
-                        function(z) c(z$gam$coeff, confint(z$gam, parm=z$gam$terms[[3]])))
-}
-names(Result) <- names(fss.all)
+# Subset the top models for each species
+top.mod.fits.achaffine <- top.mod.fits %>%
+  filter(str_detect(row.names(top.mod.fits), "affine"))
 
-##
-Result <- list()
-for (i in seq_along(top.mod.fits.achaffine)) {
-  Result <- lapply(top.mod.fits.achaffine, 
-                        function(z) c(z$gam$coeff, confint(z$gam, parm=z$gam$terms[[3]])))
-}
-names(Result) <- names(fss.all)
+top.mod.fits.admi <- top.mod.fits %>%
+  filter(str_detect(row.names(top.mod.fits), "minutissimum"))
 
+top.mod.fits.alpigena <- top.mod.fits %>%
+  filter(str_detect(row.names(top.mod.fits), "alpigena"))
+
+# Extract GAM coefficients and point-wise CI of the list
+top.mod.fits.achaffine <- lapply(fss.all[["Achnanthidium.affine"]][["success.models"]][top.mod.fits.achaffine$modname], 
+                                 function(z) c(z$gam$coeff, confint(z$gam, parm=z$terms, n=100)))
+
+top.mod.fits.admi <- lapply(fss.all[["Achnanthidium.minutissimum"]][["success.models"]][top.mod.fits.admi$modname], 
+                                 function(z) c(z$gam$coeff, confint(z$gam, parm=z$terms, n=100)))
+
+
+top.mod.fits.alpigena <- lapply(fss.all$Aulacoseira.alpigena[["success.models"]][top.mod.fits.alpigena$modname], 
+                            function(z) c(z$coeff, confint(z, parm=z$terms, n=100)))
+
+
+
+## 
 require(car)
 require(doBy)
 require(gplots)

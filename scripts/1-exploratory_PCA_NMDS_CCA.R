@@ -140,7 +140,7 @@ plot(mod_pca)
 
 #custom plot
 png("outputs/PCA_monthly_Cajas_diatoms.png", width=10, height=8, units="in", res=300)
-png("outputs/PCA_yearly_Cajas_diatoms.png", width=10, height=8, units="in", res=300)
+#png("outputs/PCA_yearly_Cajas_diatoms.png", width=10, height=8, units="in", res=300)
 
 par(mfrow=c(1,2))
 par(mar=c(5,4,4,3)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
@@ -152,12 +152,12 @@ PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1],
                          month=meta$Month,
                          lake=meta$Lake)
 
-#Create data frame with factor scores, month and lake groupings of yearly data
-PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1], 
-                         PCA2=scores(mod_pca, display = "sites")[,2], 
-                         lake=PCA_data_yearly$lake)
+# #Create data frame with factor scores, month and lake groupings of yearly data
+# PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1], 
+#                          PCA2=scores(mod_pca, display = "sites")[,2], 
+#                          lake=PCA_data_yearly$lake)
 
-plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab = "PCA1 (33.6%)", ylab = "PCA2 (15.6%)")
+plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab = "PCA1 (32.8%)", ylab = "PCA2 (14.4%)")
 title("Sites")
 abline(h=0, col="grey")
 abline(v=0, col="grey")
@@ -169,7 +169,7 @@ points(PCA.scores[(PCA.scores$month=="December"), 1:2],  col="black", pch=23, bg
 points(PCA.scores[(PCA.scores$month=="February"), 1:2],  col="black", pch=8)
 
 text(PCA.scores[,1:2], labels=PCA.scores$lake, pos = 1, cex = 0.6, offset = 0.3)
-points(PCA.scores[,1:2], pch=18)
+#points(PCA.scores[,1:2], pch=18)
 
 #legend for monhtly dataset
 legend("bottomleft",c("June", "September", "December", "February")
@@ -206,13 +206,17 @@ PCA_result <- PCA_result %>% mutate(month=recode(month,
                                                  "February"=4))
 
 cor(PCA_result[,1:2], PCA_result[,c(3,5:ncol(PCA_result))], use = "complete")
-cor <- corr.test(PCA_result[,1:2], PCA_result[,c(3,5:ncol(PCA_result))], method = "spearman")
+cor.r <- corr.test(PCA_result[,1:2], PCA_result[,c(3,5:ncol(PCA_result))], method = "spearman")$r
+cor.p <- corr.test(PCA_result[,1:2], PCA_result[,c(3,5:ncol(PCA_result))], method = "spearman")$p
 
+cor_PCA_results <- rbind(cor.r, cor.p)
+row.names(cor_PCA_results) <- c("PCA1r", "PCA2r", "PCA1r", "PCA2r")
+
+#write.table(cor_PCA_results, file = "outputs/PCA_correlations.txt")
 
 ### Diatom analysis
 #Load the data for the diatoms (response variable)
-diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
-diat <- diat[,-ncol(diat)] #last column is NAs
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep=";")
 
 ##Transform to relative abundance
 total <- apply(diat, 1, sum)
