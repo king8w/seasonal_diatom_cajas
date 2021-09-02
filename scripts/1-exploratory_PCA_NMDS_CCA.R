@@ -17,13 +17,13 @@ physics <- read.csv("data/lake_physics_data.csv", sep=";", row.names = 1)
 
 # subset environmental variables into chemical and physical
 chemical_var <- env[,names(env) %in% c("ChlA_a", "Ca", "Mg", "Na", "K", "Alkalinity", "SO4", "Si", "Color", "pH", "Cond", "DO")]
-chemical_var[,c("secchi_m", "Fe", "TP", "DOC", "TOC")] <- physics[,names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC")]
+chemical_var[,c("secchi_m", "Fe", "TP", "DOC", "TOC", "waterT")] <- physics[,names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "waterT")]
 
 catchment_var <- env[,names(env) %in% c("Altitude", "Heat", "Zmax_m", "CA_m2", "WRT", "Pajonal", "PajonalRoca", "Roca")]
 catchment_var$wetland <- physics$wetland
 
 # combine lake physics and subset of physical variables from full env
-physics <- physics[,!names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "wetland")]
+physics <- physics[,!names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "wetland", "waterT")]
 full_physics <- cbind(catchment_var, physics)
 
 # Combine full_physics and chemical data for data exploration
@@ -69,7 +69,7 @@ env_trans <- transform(full_env, Alkalinity=log10(Alkalinity+0.25), Altitude=log
                     Zmax_m=log10(Zmax_m+0.25),
                     lake_catch_ratio=log10(lake_catch_ratio+0.25), 
                     catch_volume_ratio=log10(catch_volume_ratio+0.50),
-                    mix_event=log10(mix_event+0.25))
+                    mix_event=log10(mix_event+0.25), waterT=log10(waterT+0.25))
 
 #Check explanatory variable dataset colinearity
 pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.panel = panel.cor, gap = 0, cex.labels = 1, cex=1.5, font.labels = 1)
@@ -275,8 +275,6 @@ NMDS.scores <- data.frame(component1=diat.nmds.scores[,1],
                           month=meta$Month,
                           lake=meta$Lake)
 
-plot(diat.nmds, type = "n", xlim=range(scrs[,1]), ylim=range(scrs[,2]))
-
 #manual coding for months
 points(NMDS.scores[(NMDS.scores$month=="June"), 1:2], col="black", pch=24, bg="grey")
 points(NMDS.scores[(NMDS.scores$month=="September"), 1:2], col="black", pch=22, bg="black")
@@ -339,7 +337,7 @@ names(ccaResult$anova) <- colnames(PCA_data)
 
 #multivariate cca with variables having individual statistical significant effects on diatom data (montly model)
 var <- c("Ca", "Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "secchi_m", "Zmax_m",
-               "CA_m2", "wetland", "lake_catch_ratio", "mix_event")
+               "CA_m2", "wetland", "lake_catch_ratio", "mix_event", "waterT")
 
 #multivariate cca with variables having individual statistical significant effects on diatom data (yearly model)
 # var <- c("Alkalinity", "Ca", "CA_m2", "Cond", "Mg", "Na", "pH")
@@ -432,8 +430,9 @@ CCA_result <- CCA_result %>% mutate(month=recode(Month,
                                                  "December"=3,
                                                  "February"=4))
 
-cor(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:16,ncol(CCA_result))], use = "complete")
-cor <- corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:16,ncol(CCA_result))], method = "spearman")
+cor(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], use = "complete")
+corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$p
+corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$r
 
 # Triplot
 dev.off()
@@ -441,7 +440,7 @@ png("outputs/CCA_cajas_diatoms_new.png", width=10, height=8, units="in", res=300
 
 op <- par(no.readonly = TRUE)
 par(fig = c(0, 0.5, 0, 0.95))
-plot(mod_cca, type = "none", scaling = 3)
+plot(mod_cca, type="n", xlab=labs[1], ylab=labs[2])
 title("Sites")
 points(CCA.scores[(CCA.scores$Month=="June"), 2:3], col="black", pch=24, bg="grey")
 points(CCA.scores[(CCA.scores$Month=="September"), 2:3], col="black", pch=22, bg="black")
@@ -455,7 +454,7 @@ legend("bottomleft",c("June", "September", "December", "February")
        ncol = 1, xpd = TRUE)
 
 par(fig = c(0.5, 1, 0, 0.95), new = TRUE)
-plot(mod_cca, type = "none", scaling = 3, ylab = "")
+plot(mod_cca, type="n", scale=3)
 title("Species")
 #points(mod_cca$CCA$v[,1:2])
 
@@ -494,7 +493,7 @@ par(mar = c(2.5, 3.5, 1, 0.5))
 par(mgp = c(1.5, 0.5, 0))
 par(oma = c(0, 0, 3, 0))
 
-var <- c("wetland")
+var <- c("waterT")
 for (i in 1:length(diat)) {
   plot(diat[, i] ~ env_trans[, var], ann = F, cex = 0.6, cex.axis = 0.8,
        tcl = -0.4, las = 1, pch = 19, )
@@ -508,12 +507,11 @@ par(op)
 source("scripts/functions/model.gams.R")
 
 # Select variable to model with GAM
-var <- "mix_event"
+var <- c("mix_event")
 env_var <- model_var[,var]
 
 # Run the function
-models.gam(diat,env_var, title = "Diatom distribution vs")
-
+models.gam(diat,env_var, title = "Diatom distribution vs log10 Mix event")
 
 
 ### CCA forward-step model selection
@@ -549,8 +547,8 @@ write.csv(mod_cca_fw_full, "outputs/mod_cca_fw_full.csv")
 #Varpart
 varpart <- varpart(diat, env.sel, spatial.sel, physical.sel)
 
-plot(varpart, Xnames="")
-text(locator(), c("Environmental","Spatial", "Physical"), cex=1)
+plot(varpart, Xnames=c("Environment","Spatial", "Physical"))
+#text(locator(), c("Environmental","Spatial", "Physical"), cex=1)
 
 #Test pure effects
 anova.cca(rda(diat, env.sel, cbind(spatial.sel, physical.sel)), perm.max = 999) ## test pure environmental (signif 0.05)

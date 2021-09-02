@@ -1,7 +1,7 @@
 #GAMs___________________________________________________________
 ## Perform GAMs across species (columns), predict, and plot 
 
-models.gam<-function(taxa,env, title, gam.save = "gam.results.txt"){
+models.gam<-function(taxa,env, title){
   
   require(mgcv)
   
@@ -46,22 +46,15 @@ models.gam<-function(taxa,env, title, gam.save = "gam.results.txt"){
     
     mtext(colnames(diat)[i], side = 3, line = 0.2, cex = 0.6)
     
-    for(r in 1:ncol(spp.data)){
-      gam.results <- matrix()
-      gam.results <- summary(mod)["s.pv"][r]
+    gam.results <- summary(mod)["s.pv"][i]
+      
     }
-    
-
-    # if(!is.null(gam.save)){write.table(gam.results, file = gam.save, sep = "\t", col.names = TRUE, row.names=FALSE, na="")}
-    
-    return(gam.results)
-    
-  }
   mtext(title, outer = TRUE,
         side = 3, cex = 1.2, line = 1)
-
   
-}
+  }
+  
+  
 ##___________________________________________________________
 
 Deriv <- function(mod, n = 200, eps = 1e-7, newdata, term) {
