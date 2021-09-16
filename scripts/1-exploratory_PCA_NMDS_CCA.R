@@ -26,12 +26,17 @@ catchment_var$wetland <- physics$wetland
 physics <- physics[,!names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "wetland", "waterT")]
 full_physics <- cbind(catchment_var, physics)
 
-# Combine full_physics and chemical data for data exploration
-full_env <- cbind(chemical_var, full_physics)
+#Read in the phytoplankton richness (non-diatoms)
+phyto_richn <- read.csv("data/phyto_richness.csv", row.names=1)
+colnames(phyto_richn) <- c("phyto_richness")
 
-#Load the meta data for grouping
+# Combine full_physics and chemical data for data exploration
+full_env <- cbind(chemical_var, full_physics, phyto_richn)
+
+#Read the meta data for grouping
 meta <- read.csv("data/metamonth.csv", row.names = 1)
 head(meta)
+
 
 #Colinearity Panel Function
 #panel correlation plots to assess data distribution
@@ -69,7 +74,8 @@ env_trans <- transform(full_env, Alkalinity=log10(Alkalinity+0.25), Altitude=log
                     Zmax_m=log10(Zmax_m+0.25),
                     lake_catch_ratio=log10(lake_catch_ratio+0.25), 
                     catch_volume_ratio=log10(catch_volume_ratio+0.50),
-                    mix_event=log10(mix_event+0.25), waterT=log10(waterT+0.25))
+                    mix_event=log10(mix_event+0.25), waterT=log10(waterT+0.25),
+                    phyto_richness=sqrt(phyto_richness))
 
 #Check explanatory variable dataset colinearity
 pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.panel = panel.cor, gap = 0, cex.labels = 1, cex=1.5, font.labels = 1)
@@ -82,7 +88,8 @@ PCA_data <- env_trans
 
 # drop variables that do not have monthly observations
 PCA_data_monthly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
-                                                "Roca", "PajonalRoca", "WRT", "DOC", "TP","TOC")]
+                                                "Roca", "PajonalRoca", "WRT", "DOC", "TP","TOC", "Pajonal",
+                                                "K", "Mg", "pH")]
 
 # drop variables
 PCA_data_yearly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
@@ -126,7 +133,7 @@ for(y1.col in 1:ncol(PCA_data)){
 }
 
 #KMO sampling adequacy (KMO > 0.5 means adequate)
-KMO(cor.r)
+KMO(cor.r) 
 
 #Test Barlett (p sign means adequate)
 cortest.bartlett(Cor.matrix)
@@ -157,7 +164,7 @@ PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1],
 #                          PCA2=scores(mod_pca, display = "sites")[,2], 
 #                          lake=PCA_data_yearly$lake)
 
-plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab = "PCA1 (32.8%)", ylab = "PCA2 (14.4%)")
+plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab = "PCA1 (34.5%)", ylab = "PCA2 (17.0%)")
 title("Sites")
 abline(h=0, col="grey")
 abline(v=0, col="grey")
@@ -185,7 +192,7 @@ comp2 <- as.numeric(scores(mod_pca, display = "species")[,2])
 
 #Labels
 labels <- colnames(PCA_data)
-plot(comp1, comp2, pch=16, col="black", xlab = "PCA1 (32.8%)", ylab = "")
+plot(comp1, comp2, pch=16, col="black", xlab = "PCA1 (34.5%)", ylab = "")
 title("Variables")
 abline(h=0, col="grey")
 abline(v=0, col="grey")
@@ -321,19 +328,26 @@ legend("bottomleft",c("June", "September", "December", "February")
 #   as.data.frame()
 # diat <- diat_yearly
 
+mod <- cca(diat~PCA_data$Ca, na=na.omit, scale=TRUE)
+
 #
 par(mfrow=c(5,4))
 ccaResult <- list()
 for (i in 1:length(PCA_data)) {
   mod <- cca(diat~PCA_data[,i], na=na.omit, scale=TRUE)
   ccaResult$mod[[i]] <- mod
-  plot(ccaResult$mod[[i]], main=colnames(PCA_data[i]))
+  #plot(ccaResult$mod[[i]], main=colnames(PCA_data[i]))
   ccaResult$anova[[i]] <- anova(ccaResult$mod[[i]])
+  ccaResult$ratio[[i]] <- mod[["CCA"]][["eig"]][["CCA1"]]/mod[["CA"]][["eig"]][["CA1"]] #ratio from the CCAconstrained  axis (k1) to the first eigenvalue from the unconstrained axis (k2)
   #print(anova(ccaResult$mod[[i]]))
 }
 
 names(ccaResult$mod) <- colnames(PCA_data)
 names(ccaResult$anova) <- colnames(PCA_data)
+vec <- ccaResult$ratio
+names(vec) <- colnames(PCA_data)
+vec <- sort(vec, decreasing = TRUE)
+barplot(vec, cex.names=0.7, las=2)
 
 #multivariate cca with variables having individual statistical significant effects on diatom data (montly model)
 var <- c("Ca", "Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "secchi_m", "Zmax_m",
