@@ -44,13 +44,18 @@ diat_env <- merge(diat_env, spatial_var, by="row.names")
 diat_env <- diat_env[,-1]
 
 # make it long
+target <- c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
+  "Roca", "PajonalRoca", "WRT", "DOC", "TP","TOC", "Pajonal",
+  "K", "Mg", "pH")
+
 diatom_env_long <- diat_env %>%
-  gather(key = taxa, value = count, -names(model_var), -Row.names, -names(meta), -Latitude, -Longitude) %>%
-  filter(str_detect(taxa, "Discostella|Aulacoseira"))
+  gather(key = taxa, value = count, -names(PCA_data), -Row.names, -names(meta), -Latitude, -Longitude) %>%
+  filter(!taxa %in% target)
+  #filter(str_detect(taxa, "Discostella|Aulacoseira"))
 
 # calculate relative abundance to plot seasonal variation of species by altitude
 diat_spp_month_ra <- diatom_env_long %>%
-  group_by(taxa, Month, Lake, Ca, Altitude) %>%
+  group_by(taxa, Month, Lake, Cond, Altitude) %>% #here group by variables of interest
   summarise(count = sum(count)) %>%
   #filter(!count == "0" ) %>% #this is to remove empty samples (rows)
   ungroup() %>%
@@ -70,7 +75,7 @@ spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_pe
 spp.plot
 
 # Point-sized plot
-spp.plot <- ggplot(diat_spp_month_ra, aes(y = taxa, x=fct_reorder2(Lake,relative_abundance_percent,Altitude), colour=Ca)) +
+spp.plot <- ggplot(diat_spp_month_ra, aes(y = taxa, x=fct_reorder2(Lake,relative_abundance_percent,Altitude), colour=Cond)) +
   geom_point(aes(size=relative_abundance_percent))+  #coord_flip() +
   #geom_bar(position = "fill", stat="identity")+  #coord_flip() +
   facet_wrap(Month~., scales = "free") +
