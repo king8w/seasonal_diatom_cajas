@@ -138,8 +138,8 @@ library(FSSgam)
 
 # Prepare dataset 
 #Load the data for the diatoms (response variable)
-diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1)
-diat <- diat[,-ncol(diat)] #last column is NAs
+diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep = ";")
+#diat <- diat[,-ncol(diat)] #last column is NAs
 
 # Read in geographical coordinates lakes
 spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
@@ -153,8 +153,8 @@ diat <- diat[, abund>20] # present in >20 samples
 model_var <- read.csv("outputs/model_var.csv", row.names=1)
 
 #cat.preds <- c("SubCuenca", "Lake")
-cont.preds <- c("Ca", "Mg", "K", "Alkalinity", "Si", "Altitude", "Zmax_m",
-                "wetland", "secchi_m", "lake_catch_ratio", "mix_event")
+cont.preds <- c("Ca", "SO4", "Alkalinity", "Si", "Altitude", "Zmax_m",
+                "wetland", "secchi_m", "lake_catch_ratio", "mix_event", "waterT")
 null.cars <- c("Longitude", "Latitude")
 
 # Run base model
@@ -235,14 +235,12 @@ abund <- apply(diat, 2, max)
 diat <- diat[, abund>20] # present in >20 samples
 
 # Merge diatom data the most parsimonious variables selected by CCA
-
 diat <- diat[order(row.names(diat)),]
 model_var <- model_var[order(row.names(model_var)),]
 meta <- meta[order(row.names(meta)),]
 spatial_var <- spatial_var[order(row.names(spatial_var)),]
 
 diat_env <- cbind(diat, model_var, meta, spatial_var)
-
 
 # make it long
 diatom_env_long <- diat_env %>%
@@ -272,10 +270,10 @@ spp.plot
 #        dpi = 300)
 
 # set predictors
-cont.preds <- c("Ca", "Mg", "K", "Alkalinity", "Si", "Altitude", "Zmax_m",
-                "wetland", "secchi_m", "lake_catch_ratio", "mix_event")
+cont.preds <- c("Ca", "SO4", "Alkalinity", "Si", "Altitude", "Zmax_m",
+                "wetland", "secchi_m", "lake_catch_ratio", "mix_event", "waterT")
 #resp.vars <- c("Achnanthidium.affine", "Pseudostaurosira.santaremensis", "Discostella.stelligera")
-resp.vars <- names(diat_env[,c(2:19)])
+resp.vars <- names(diat_env[,c(1:18)])
 null.vars <- c("Longitude", "Latitude")
 
 #setwd("C:/Users/xbenito/Documents/R/Cajas/outputs") #Set wd for storing the results
@@ -298,8 +296,8 @@ for(i in 1:length(resp.vars)){
   use.dat$response=use.dat[,resp.vars[i]]
 
   #test.fit model for the particular diatom spp i
-  model1 <- uGamm(use.dat$response ~ Ca + Mg + K + Alkalinity + Si + Altitude + Zmax_m + wetland + secchi_m +
-                    lake_catch_ratio + mix_event + s(Latitude, Longitude, k=5),
+  model1 <- uGamm(use.dat$response ~ Ca + Alkalinity + Si + Altitude + Zmax_m + wetland + secchi_m +
+                    lake_catch_ratio + mix_event + waterT + s(Latitude, Longitude, k=5),
                   family=gaussian(),
                   data=use.dat, lme4 = TRUE)
   
@@ -399,15 +397,13 @@ write.csv(all.var.imp,"all.var.imp.csv")
 # save results
 saveRDS(fss.all, "spp_GAM_IT.rds")
 
-
 # Make a nicer plot of variance importance scores
-dat.taxa <-read.csv("outputs/all.var.importance.csv")
+dat.taxa <-read.csv("outputs/all.var.imp.csv")
 
 all.var.imp <- data.frame(all.var.imp)
 all.var.imp$taxa <- row.names(all.var.imp)
 
 data.plt <- all.var.imp %>% gather(key=predictor, value=importance, -taxa)
-
 
 # colour ramps-
 #re <- colorRampPalette(c("mistyrose", "red2","darkred"))(200)
@@ -419,45 +415,45 @@ legend_title<-"Variable Importance"
 # Annotations of the top model for each species
 dat.taxa.label<-data.plt %>%
   mutate(label=NA) %>%
-  mutate(label=ifelse(predictor=="K"&taxa=="Achnanthidium.minutissimum","X",
-                      ifelse(predictor=="Ca"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="secchi_m"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
-  mutate(label=ifelse(predictor=="Altitude"&taxa=="Aulacoseira.alpigena","X",
-                      ifelse(predictor=="wetland"&taxa=="Aulacoseira.alpigena","X",
-                      ifelse(predictor=="Zmax_m"&taxa=="Aulacoseira.alpigena","X",label)))) %>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Aulacoseira.distans.septentrionalis","X",
-                      ifelse(predictor=="wetland"&taxa=="Aulacoseira.distans.septentrionalis","X",label))) %>%
+  mutate(label=ifelse(predictor=="SO4"&taxa=="Achnanthidium.affine", "X", label)) %>%
+  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Achnanthidium.minutissimum","X",
+                      ifelse(predictor=="SO4"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="Zmax_m"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Aulacoseira.alpigena","X",
+                      ifelse(predictor=="Si"&taxa=="Aulacoseira.alpigena","X",
+                      ifelse(predictor=="waterT"&taxa=="Aulacoseira.alpigena","X",label)))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Aulacoseira.distans.septentrionalis","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Aulacoseira.distans.septentrionalis","X",label))) %>%
   mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Diatoma.tenuis","X",
                       ifelse(predictor=="Si"&taxa=="Diatoma.tenuis","X",label))) %>%
-  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Discostella.stelligera","X",
-                      ifelse(predictor=="Si"&taxa=="Discostella.stelligera","X",
-                      ifelse(predictor=="wetland"&taxa=="Discostella.stelligera","X",label)))) %>%
-  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Fragilaria.tenera","X",
-                      ifelse(predictor=="K"&taxa=="Fragilaria.tenera","X",
-                      ifelse(predictor=="Zmax_m"&taxa=="Fragilaria.tenera","X",label)))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Discostella.stelligera","X",
+                      ifelse(predictor=="Si"&taxa=="Discostella.stelligera","X",label))) %>%
+  mutate(label=ifelse(predictor=="wetland"&taxa=="Fragilaria.tenera","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Fragilaria.tenera","X",label))) %>%
   mutate(label=ifelse(predictor=="K"&taxa=="Navicula.notha","X",
-                      ifelse(predictor=="mix_event"&taxa=="Navicula.notha","X",
+                      ifelse(predictor=="lake_catch_ratio"&taxa=="Navicula.notha","X",
                       ifelse(predictor=="Si"&taxa=="Navicula.notha","X",label)))) %>%
   mutate(label=ifelse(predictor=="Zmax_m"&taxa=="Navicula.radiosa","X",
                       ifelse(predictor=="wetland"&taxa=="Navicula.radiosa","X",label))) %>%
   mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.Atucyacu.1","X",
-                      ifelse(predictor=="Si"&taxa=="Nitzschia.Atucyacu.1","X",
-                      ifelse(predictor=="wetland"&taxa=="Nitzschia.Atucyacu.1","X",label)))) %>%
-  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.cf.oberheimiana","X",
-                      ifelse(predictor=="secchi_m"&taxa=="Nitzschia.cf.oberheimiana","X",label))) %>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Pseudostaurosira.laucensis","X",
-                      ifelse(predictor=="wetland"&taxa=="Pseudostaurosira.laucensis","X",label))) %>%
-  mutate(label=ifelse(predictor=="secchi_m"&taxa=="Pseudostaurosira.santamarensis","X",
-                      ifelse(predictor=="Si"&taxa=="Pseudostaurosira.laucensis","X",label))) %>%
-  mutate(label=ifelse(predictor=="Zmax_m"&taxa=="Staurosirella_pinnata","X",
-                      ifelse(predictor=="mix_event"&taxa=="Staurosirella_pinnata","X",label))) %>%
-  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Staurosirella.sp.2", "X", label)) %>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Tabellaria.fenestrata","X",
-                      ifelse(predictor=="wetland"&taxa=="Tabellaria.fenestrata","X",label))) %>%
+                      ifelse(predictor=="Si"&taxa=="Nitzschia.Atucyacu.1","X",label))) %>%
+  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Nitzschia.cf.oberheimiana","X",
+                      ifelse(predictor=="SO4"&taxa=="Nitzschia.cf.oberheimiana","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Nitzschia.cf.oberheimiana","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Pseudostaurosira.laucensis","X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Pseudostaurosira.laucensis","X",
+                      ifelse(predictor=="waterT"&taxa=="Pseudostaurosira.laucensis","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Pseudostaurosira.santamarensis","X",
+                      ifelse(predictor=="waterT"&taxa=="Pseudostaurosira.santamarensis","X",
+                      ifelse(predictor=="Si"&taxa=="Pseudostaurosira.laucensis","X",label)))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Staurosirella_pinnata","X",
+                      ifelse(predictor=="waterT"&taxa=="Staurosirella_pinnata","X",label))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Staurosirella.sp.2", "X",
+                      ifelse(predictor=="Zmax_m"&taxa=="Staurosirella.sp.2","X",label))) %>%
+  mutate(label=ifelse(predictor=="Si"&taxa=="Tabellaria.fenestrata","X", label)) %>%
   mutate(label=ifelse(predictor=="mix_event"&taxa=="Tabellaria.flocculosa","X",
                       ifelse(predictor=="Zmax_m"&taxa=="Tabellaria.flocculosa","X",label))) %>%
   mutate(label=ifelse(predictor=="Altitude"&taxa=="Ulnaria.delicatissima","X",
-                      ifelse(predictor=="wetland"&taxa=="Ulnaria.delicatissima","X",
-                      ifelse(predictor=="Zmax_m"&taxa=="Ulnaria.delicatissima","X",label)))) 
+                      ifelse(predictor=="Zmax_m"&taxa=="Ulnaria.delicatissima","X",label))) 
   
 # Plotting theme
 Theme1 <-
@@ -485,29 +481,29 @@ gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=taxa,fill=impor
   geom_tile(show.legend=T) +
    scale_fill_gradientn(legend_title,colours=c("white", re), na.value = "grey98",
                         limits = c(0, max(dat.taxa.label$importance)))+
-  scale_x_discrete(limits=c("Alkalinity",
-                            "Ca",
-                            "Mg",
-                            "K",
+  scale_x_discrete(limits=c("Ca",
+                            "SO4",
+                            "Alkalinity",
                             "Si",
                             "Altitude",
                             "Zmax_m",
+                            "wetland",
                             "secchi_m",
                             "lake_catch_ratio",
                             "mix_event",
-                            "wetland"),
+                            "waterT"),
                    labels=c(
-                     "Alkalinity (µeq /L)",
                      "Calcium (µeq /L)",
-                     "Magnesium (µeq /L)",
-                     "Potassium (µeq /L)",
+                     "Sulfate (µeq /L)",
+                     "Alkalinity (µeq /L)",
                      "Silica (µmol /L)",
                      "Altitude (m)",
                      "Z max (m)",
+                     "Wetland (%)",
                      "Secchi disk (m)",
                      "Lake/ Catchment area ratio",
                      "Mix event (degrees)",
-                     "Wetland (%)"))+
+                     "water temperature (º)"))+
   # scale_y_discrete(limits = c(""),
   #                  labels=c(""))+
   xlab(NULL)+

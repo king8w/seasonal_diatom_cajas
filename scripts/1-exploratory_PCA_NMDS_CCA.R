@@ -142,12 +142,50 @@ cortest.bartlett(Cor.matrix)
 mod_pca <- rda(PCA_data, scale=TRUE)
 summary(mod_pca)
 
+ev <- as.vector(eigenvals(mod_pca, model = "unconstrained")) #extract eigenvalues for then broken stick
+
+evplot <- function(ev) {
+  # Broken stick model (MacArthur 1957) Author: Francois Gillet, 25 August 2012
+  n <- length(ev)
+  bsm <- data.frame(j=seq(1:n), p=0)
+  bsm$p[1] <- 1/n
+  for (i in 2:n) bsm$p[i] <- bsm$p[i-1] + (1/(n + 1 - i))
+  bsm$p <- 100*bsm$p/n
+  # Plot eigenvalues and % of variation for each axis
+  op <- par(mfrow=c(2,1))
+  barplot(ev, main="Eigenvalues", col="bisque", las=2)
+  abline(h=mean(ev), col="red")
+  legend("topright", "Average eigenvalue", lwd=1, col=2, bty="n")
+  barplot(t(cbind(100*ev/sum(ev), bsm$p[n:1])), beside=TRUE, 
+          main="% variation", col=c("bisque",2), las=2)
+  legend("topright", c("% eigenvalue", "Broken stick model"), 
+         pch=15, col=c("bisque",2), bty="n")
+  par(op)
+}
+
+br <- evplot(ev) #the first two axes are the only ones eplaining more variability than expected by chance
+
+# How much variability each CCA axis explain
+axis.expl <- function(mod, axes = 1:2) {
+  if(is.null(mod$CCA)) {
+    sapply(axes, function(i) {
+      100*mod$CA$eig[i]/mod$tot.chi
+    })
+  } else {
+    sapply(axes, function(i) {
+      100*mod$CCA$eig[i]/mod$tot.chi
+    })
+  }
+}
+
+(labs <- axis.expl(mod_pca))
+
 # general plot
 plot(mod_pca)
 
 #custom plot
 png("outputs/PCA_monthly_Cajas_diatoms.png", width=10, height=8, units="in", res=300)
-#png("outputs/PCA_yearly_Cajas_diatoms.png", width=10, height=8, units="in", res=300)
+win.metafile("outputs/PCA_monthly_Cajas_diatoms.wmf", width=10, height=8, res=300)
 
 par(mfrow=c(1,2))
 par(mar=c(5,4,4,3)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
@@ -164,7 +202,7 @@ PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1],
 #                          PCA2=scores(mod_pca, display = "sites")[,2], 
 #                          lake=PCA_data_yearly$lake)
 
-plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab = "PCA1 (34.5%)", ylab = "PCA2 (17.0%)")
+plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab =labs[1], ylab = labs[2])
 title("Sites")
 abline(h=0, col="grey")
 abline(v=0, col="grey")
@@ -232,7 +270,7 @@ diat <- diat/total*100
 ##Remove rare species
 abund <- apply(diat, 2, max)
 n.occur <- apply(diat>0, 2, sum)
-diat <- diat[, n.occur>1 & abund>2] #more than 3% of RA and present in >1 sample
+diat <- diat[, n.occur>1 & abund>2] #more than 2% of RA and present in >1 sample
 
 #diat_monthly <- diat
 
@@ -328,9 +366,10 @@ legend("bottomleft",c("June", "September", "December", "February")
 #   as.data.frame()
 # diat <- diat_yearly
 
-mod <- cca(diat~PCA_data$Ca, na=na.omit, scale=TRUE)
+##  Constrained multivariate ordination
+### Test for unique contributions
+diat <- decostand(diat, method="hellinger")
 
-#
 par(mfrow=c(5,4))
 ccaResult <- list()
 for (i in 1:length(PCA_data)) {
@@ -344,14 +383,17 @@ for (i in 1:length(PCA_data)) {
 
 names(ccaResult$mod) <- colnames(PCA_data)
 names(ccaResult$anova) <- colnames(PCA_data)
-vec <- ccaResult$ratio
-names(vec) <- colnames(PCA_data)
-vec <- sort(vec, decreasing = TRUE)
-barplot(vec, cex.names=0.7, las=2)
+names(ccaResult$ratio) <- colnames(PCA_data)
+
+dev.off()
+win.metafile("outputs/CCA1_CA1ratio.wmf", width=10, height=8, res=300)
+vec <- t(t(sort(data.frame(ccaResult$ratio), decreasing = FALSE)))
+barplot(vec, col = "grey60", cex.names=0.7, las=1, xlab="λ1/λ2 ratio", horiz=T)
+dev.off()
 
 #multivariate cca with variables having individual statistical significant effects on diatom data (montly model)
-var <- c("Ca", "Mg", "K", "Alkalinity", "Cond", "Si", "Altitude", "secchi_m", "Zmax_m",
-               "CA_m2", "wetland", "lake_catch_ratio", "mix_event", "waterT")
+var <- c("Ca", "Alkalinity", "SO4", "Cond", "Si", "Altitude", "secchi_m", "Zmax_m",
+               "CA_m2", "wetland", "lake_catch_ratio", "mix_event", "waterT", "phyto_richness")
 
 #multivariate cca with variables having individual statistical significant effects on diatom data (yearly model)
 # var <- c("Alkalinity", "Ca", "CA_m2", "Cond", "Mg", "Na", "pH")
@@ -360,13 +402,11 @@ model_var <- PCA_data[,var]
 vifstep(model_var) #check out for multicollinearity
 
 #subset variables and save most parsimonius model variables selected by individual CCAs for later
-model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2")]
+model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2", "phyto_richness")]
 
 write.csv(model_var, "outputs/model_var.csv")  
 
 # Perform CCA
-diat <- decostand(diat, method="hellinger")
-
 mod_cca <- cca(diat~., data=model_var, scale=TRUE)
 plot(mod_cca, scaling = 3)
 
@@ -445,12 +485,19 @@ CCA_result <- CCA_result %>% mutate(month=recode(Month,
                                                  "February"=4))
 
 cor(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], use = "complete")
-corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$p
-corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$r
+cor.p <- corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$p
+cor.r <- corr.test(CCA_result[,c("CCA1", "CCA2")], CCA_result[,c(7:18,ncol(CCA_result))], method = "spearman")$r
+
+cor_CCA_results <- rbind(cor.r, cor.p)
+row.names(cor_CCA_results) <- c("PCA1p", "PCA2p", "PCA1r", "PCA2r")
+
+write.table(cor_CCA_results, file = "outputs/CCA_correlations.txt")
+
 
 # Triplot
 dev.off()
-png("outputs/CCA_cajas_diatoms_new.png", width=10, height=8, units="in", res=300)
+png("outputs/CCA_cajas_diatoms_new.png", width=12, height=8, units="in", res=300)
+win.metafile("outputs/CCA_cajas_diatoms.wmf", width=10, height=8, res=300)
 
 op <- par(no.readonly = TRUE)
 par(fig = c(0, 0.5, 0, 0.95))
@@ -521,7 +568,7 @@ par(op)
 source("scripts/functions/model.gams.R")
 
 # Select variable to model with GAM
-var <- c("mix_event")
+var <- c("Ca")
 env_var <- model_var[,var]
 
 # Run the function
@@ -531,12 +578,13 @@ models.gam(diat,env_var, title = "Diatom distribution vs log10 Mix event")
 ### CCA forward-step model selection
 # Environmental variables
 mod_caa.R2a <- RsquareAdj(mod_cca)$adj.r.squared
-env <- PCA_data[,names(PCA_data) %in% names(chemical_var)]
+env <- PCA_data[,names(PCA_data) %in% c("Ca", "Alkalinity", "SO4", "Si", "waterT")]
 
 mod_cca.fw.env <- forward.sel(diat, env, adjR2thresh = mod_caa.R2a)
 mod_cca.fw.env$R2a.fullmodel <- mod_caa.R2a
 
-env.sel <- env_trans[, which(names(env_trans) %in% mod_cca.fw.env$variables)] 
+env.sel <- env[, which(names(env) %in% mod_cca.fw.env$variables)] 
+
 
 # Spatial variables
 # read mems from 2-MoranEigenvectorMaps.R
@@ -548,7 +596,7 @@ mod_cca.fw.spatial$R2a.fullmodel <- mod_caa.R2a
 spatial.sel <- spatial[, which(names(spatial) %in% mod_cca.fw.spatial$variables)] 
 
 # Physical variables
-physical <- PCA_data[,names(PCA_data) %in% names(full_physics)]
+physical <- PCA_data[,names(PCA_data) %in% c("secchi_m", "Zmax_m", "wetland", "lake_catch_ratio", "mix_event")]
 mod_cca.fw.physical <- forward.sel(diat, physical, adjR2thresh = mod_caa.R2a)
 mod_cca.fw.physical$R2a.fullmodel <- mod_caa.R2a
 
