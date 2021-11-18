@@ -397,7 +397,7 @@ saveRDS(fss.all, "spp_GAM_IT.rds")
 
 # Make a nicer plot of variance importance scores
 dat.taxa <-read.csv("outputs/all.var.imp.csv", row.names = 1)
-all.var.imp <- read.csv("outputs/all")
+all.var.imp <- read.csv("outputs/all_model_fits.csv", row.names = 1)
 
 all.var.imp <- data.frame(dat.taxa)
 all.var.imp$taxa <- row.names(all.var.imp)
@@ -414,49 +414,50 @@ legend_title<-"Variable Importance"
 
 # Annotations of the top model for each species
 ## V2
+# add up \U2191 and down arrows \U2193; \U2193 straight
 dat.taxa.label<-data.plt %>%
   mutate(label=NA) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Achnanthidium.affine","X",
-                      ifelse(predictor=="SO4"&taxa=="Achnanthidium.affine","X",label)))%>%
-  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Achnanthidium.minutissimum","X",
-                      ifelse(predictor=="SO4"&taxa=="Achnanthidium.minutissimum","X",ifelse(predictor=="erosion_prop"&taxa=="Achnanthidium.minutissimum","X",label))))%>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Aulacoseira.alpigena","X",
-                      ifelse(predictor=="Fe"&taxa=="Aulacoseira.alpigena","X",
-                             ifelse(predictor=="secchi_m"&taxa=="Aulacoseira.alpigena","X",label)))) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Aulacoseira.distans.septentrionalis","X",
-                      ifelse(predictor=="lake_catch_ratio"&taxa=="Aulacoseira.distans.septentrionalis","X",
-                             ifelse(predictor=="Fe"&taxa=="Aulacoseira.distans.septentrionalis","X",label)))) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Diatoma.tenuis","X",label)) %>%
-  mutate(label=ifelse(predictor=="mix_event"&taxa=="Discostella.stelligera","X",
-                      ifelse(predictor=="Fe"&taxa=="Discostella.stelligera","X",
-                             ifelse(predictor=="erosion_prop"&taxa=="Discostella.stelligera","X",label)))) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Fragilaria.tenera","X",
-                      ifelse(predictor=="Fe"&taxa=="Fragilaria.tenera","X",
-                             ifelse(predictor=="Mg"&taxa=="Fragilaria.tenera","X",label)))) %>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Navicula.notha","X",
-                      ifelse(predictor=="Fe"&taxa=="Navicula.notha","X",
-                             ifelse(predictor=="waterT"&taxa=="Navicula.notha","X",label)))) %>%
-  mutate(label=ifelse(predictor=="mix_event"&taxa=="Navicula.radiosa","X",
-                      ifelse(predictor=="Fe"&taxa=="Navicula.radiosa","X",label))) %>%
-  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.Atucyacu.1","X",
-                      ifelse(predictor=="Si"&taxa=="Nitzschia.Atucyacu.1","X",label))) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Nitzschia.cf.oberheimiana","X",
-                      ifelse(predictor=="Fe"&taxa=="Nitzschia.cf.oberheimiana","X",
-                             ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.cf.oberheimiana","X",label)))) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Pseudostaurosira.laucensis","X",
-                      ifelse(predictor=="waterT"&taxa=="Pseudostaurosira.laucensis","X",
-                             ifelse(predictor=="Fe"&taxa=="Pseudostaurosira.laucensis","X",label)))) %>%
-  mutate(label=ifelse(predictor=="Mg"&taxa=="Pseudostaurosira.santaremensis","X",
-                      ifelse(predictor=="Si"&taxa=="Pseudostaurosira.santaremensis","X",
-                             ifelse(predictor=="mix_event"&taxa=="Pseudostaurosira.santaremensis","X",label)))) %>%
-  mutate(label=ifelse(predictor=="Ca"&taxa=="Staurosirella.pinnata","X",
-                      ifelse(predictor=="waterT"&taxa=="Staurosirella.pinnata","X",label))) %>%
-  mutate(label=ifelse(predictor=="mix_event"&taxa=="Staurosirella.sp.2", "X",label)) %>%
-  mutate(label=ifelse(predictor=="Si"&taxa=="Tabellaria.fenestrata","X",label)) %>%
-  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Tabellaria.flocculosa","X",
-                      ifelse(predictor=="secchi_m"&taxa=="Tabellaria.flocculosa","X",label))) %>%
-  mutate(label=ifelse(predictor=="Altitude"&taxa=="Ulnaria.delicatissima","X",
-                      ifelse(predictor=="erosion_prop"&taxa=="Ulnaria.delicatissima","X",label))) 
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Achnanthidium.affine","X \U2193",
+                      ifelse(predictor=="SO4"&taxa=="Achnanthidium.affine","X \U2191",label)))%>%
+  mutate(label=ifelse(predictor=="Alkalinity"&taxa=="Achnanthidium.minutissimum","X \U2193",
+                      ifelse(predictor=="SO4"&taxa=="Achnanthidium.minutissimum","X \U2193",ifelse(predictor=="erosion_prop"&taxa=="Achnanthidium.minutissimum","X \U2192",label))))%>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Aulacoseira.alpigena","X \U2193",
+                      ifelse(predictor=="Fe"&taxa=="Aulacoseira.alpigena","X \U2191 \U2193",
+                             ifelse(predictor=="secchi_m"&taxa=="Aulacoseira.alpigena","X \U2193",label)))) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Aulacoseira.distans.septentrionalis","X \U2191",
+                      ifelse(predictor=="lake_catch_ratio"&taxa=="Aulacoseira.distans.septentrionalis","X \U2193",
+                             ifelse(predictor=="Fe"&taxa=="Aulacoseira.distans.septentrionalis","X \U2191",label)))) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Diatoma.tenuis","X \U2191",label)) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Discostella.stelligera","X \U2191",
+                      ifelse(predictor=="Fe"&taxa=="Discostella.stelligera","X \U2191",
+                             ifelse(predictor=="erosion_prop"&taxa=="Discostella.stelligera","X \U2191",label)))) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Fragilaria.tenera","X \U2191",
+                      ifelse(predictor=="Fe"&taxa=="Fragilaria.tenera","X \U2193",
+                             ifelse(predictor=="Mg"&taxa=="Fragilaria.tenera","X \U2193",label)))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Navicula.notha","X \U2193",
+                      ifelse(predictor=="Fe"&taxa=="Navicula.notha","X \U2193",
+                             ifelse(predictor=="waterT"&taxa=="Navicula.notha","X \U2193",label)))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Navicula.radiosa","X \U2193",
+                      ifelse(predictor=="Fe"&taxa=="Navicula.radiosa","X \U2193",label))) %>%
+  mutate(label=ifelse(predictor=="lake_catch_ratio"&taxa=="Nitzschia.Atucyacu.1","X \U2193",
+                      ifelse(predictor=="Si"&taxa=="Nitzschia.Atucyacu.1","X \U2191",label))) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Nitzschia.cf.oberheimiana","X \U2193",
+                      ifelse(predictor=="Fe"&taxa=="Nitzschia.cf.oberheimiana","X \U2193 \U2191",
+                             ifelse(predictor=="mix_event"&taxa=="Nitzschia.cf.oberheimiana","X \U2193 \U2191",label)))) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Pseudostaurosira.laucensis","X \U2193 \U2191",
+                      ifelse(predictor=="waterT"&taxa=="Pseudostaurosira.laucensis","X \U2193",
+                             ifelse(predictor=="Fe"&taxa=="Pseudostaurosira.laucensis","X \U2191",label)))) %>%
+  mutate(label=ifelse(predictor=="Mg"&taxa=="Pseudostaurosira.santaremensis","X \U2193",
+                      ifelse(predictor=="Si"&taxa=="Pseudostaurosira.santaremensis","X \U2191",
+                             ifelse(predictor=="mix_event"&taxa=="Pseudostaurosira.santaremensis","X \U2191",label)))) %>%
+  mutate(label=ifelse(predictor=="Ca"&taxa=="Staurosirella.pinnata","X \U2193",
+                      ifelse(predictor=="waterT"&taxa=="Staurosirella.pinnata","X \U2193",label))) %>%
+  mutate(label=ifelse(predictor=="mix_event"&taxa=="Staurosirella.sp.2", "X \U2193",label)) %>%
+  mutate(label=ifelse(predictor=="Si"&taxa=="Tabellaria.fenestrata","X \U2191",label)) %>%
+  mutate(label=ifelse(predictor=="erosion_prop"&taxa=="Tabellaria.flocculosa","X \U2191",
+                      ifelse(predictor=="secchi_m"&taxa=="Tabellaria.flocculosa","X \U2193",label))) %>%
+  mutate(label=ifelse(predictor=="Altitude"&taxa=="Ulnaria.delicatissima","X \U2191",
+                      ifelse(predictor=="erosion_prop"&taxa=="Ulnaria.delicatissima","X \U2191",label))) 
 
 # Plotting theme
 Theme1 <-
