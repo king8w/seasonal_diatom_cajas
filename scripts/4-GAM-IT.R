@@ -506,7 +506,7 @@ gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=taxa,fill=impor
                      "Silica (µeq /L)",
                      "Water temperature (º)",
                      "Altitude (m)",
-                     "Secchi transparency (m)",
+                     "Secchi depth (m)",
                      "Erosion (%)",
                      "Lake/ Catchment area ratio",
                      "Mix event (degrees)"))+
@@ -520,7 +520,7 @@ gg.importance.scores <- ggplot(dat.taxa.label, aes(x=predictor,y=taxa,fill=impor
 gg.importance.scores
 
 # Save the plot
-ggsave("outputs/GAM_IT_varimportance.png", plot=gg.importance.scores, height=8, width=10,units="in",
+ggsave("outputs/GAM_IT_varimportance_v2.png", plot=gg.importance.scores, height=8, width=10,units="in",
        dpi = 400)
 
 

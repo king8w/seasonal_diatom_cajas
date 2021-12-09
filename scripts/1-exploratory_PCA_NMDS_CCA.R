@@ -100,6 +100,8 @@ PCA_data <- env_trans
 PCA_data_monthly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
                                                 "Roca", "PajonalRoca", "WRT", "DOC", "TP","TOC", "Pajonal",
                                                 "K", "erosion", "phyto_richness", "Color")]
+
+
 PCA_data <- PCA_data_monthly #monthly
 
 # drop variables
@@ -196,7 +198,7 @@ plot(mod_pca)
 
 #custom plot
 png("outputs/PCA_monthly_Cajas_diatoms_v2_geology.png", width=10, height=8, units="in", res=300)
-win.metafile("outputs/PCA_monthly_Cajas_diatoms_v2.wmf", width=10, height=8, res=300)
+win.metafile("outputs/PCA_monthly_Cajas_diatoms_v2_geology.wmf", width=10, height=8, res=300)
 
 par(mfrow=c(1,2))
 par(mar=c(5,4,3,3)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
@@ -356,12 +358,13 @@ diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep=";")
 total <- apply(diat, 1, sum)
 diat <- diat/total*100
 
+## species richness
+rich <- apply(diat>0, 1, sum)
+
 ##Remove rare species
 abund <- apply(diat, 2, max)
 n.occur <- apply(diat>0, 2, sum)
 diat <- diat[, n.occur>1 & abund>2] #more than 2% of RA and present in >1 sample
-
-#diat_monthly <- diat
 
 # Average diatom data by lake and Month 
 diat$month <- meta$Month
@@ -381,79 +384,6 @@ diat_yearly <- diat_yearly[,-1]
 diat <- diat_monthly
 diat <- diat_yearly
 
-## NMDS
-#Perform NMDS with hellinger pres/abs data transformation
-# diat <- decostand(diat, method="hellinger")
-# 
-# diat.nmds <- metaMDS(diat, distance="bray", trymax=50, autotransform=F)
-# diss <- vegdist(diat, distance="bray", binary = TRUE)
-# stressplot(diat.nmds, diss)
-# 
-# #Interpret NMDS ordination with limnological data (vegan's envfit function)
-# #Envfit procedure
-# fit <- envfit(diat.nmds, env_trans, na.rm=TRUE) 
-# fit
-# 
-# #Factor scores (samples)
-# diat.nmds.scores <- diat.nmds$points[,1:2]
-# 
-# #Plot NMDS
-# scrs <- scores(diat.nmds, display = "sites", choices = 1:2)
-# plot(diat.nmds, type = "n", xlim=range(scrs[,1]), ylim=range(scrs[,2]))
-# par(mfrow=c(1,2))
-# par(mar=c(3,3,2,2)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
-# 
-# #Create data frame with factor scores and regions
-# NMDS.scores <- data.frame(component1=diat.nmds.scores[,1], 
-#                           component2=diat.nmds.scores[,2], 
-#                           month=meta$Month,
-#                           lake=meta$Lake)
-# 
-# #manual coding for months
-# points(NMDS.scores[(NMDS.scores$month=="June"), 1:2], col="black", pch=24, bg="grey")
-# points(NMDS.scores[(NMDS.scores$month=="September"), 1:2], col="black", pch=22, bg="black")
-# points(NMDS.scores[(NMDS.scores$month=="December"), 1:2],  col="black", pch=23, bg="grey")
-# points(NMDS.scores[(NMDS.scores$month=="February"), 1:2],  col="black", pch=8)
-# 
-# text(NMDS.scores[,1:2], labels=NMDS.scores$lake, pos = 1, cex = 0.6, offset = 0.3)
-# 
-# 
-# # #legend for monhtly dataset
-# legend("bottomleft",c("June", "September", "December", "February")
-#        , cex=.8, pch=c(24,22,23,8),
-#        col=c("black", "black", "black", "black"),
-#        pt.bg = c("grey", "black", "grey", "black"),
-#        ncol = 1, xpd = TRUE)
-# # 
-# #manual coding for lakes
-# points(NMDS.scores[(NMDS.scores$lake=="Llaviucu"), 1:2], col="black", pch=24, bg="grey")
-# points(NMDS.scores[(NMDS.scores$lake=="Toreadora"), 1:2], col="black", pch=22, bg="black")
-# points(NMDS.scores[(NMDS.scores$lake=="Yantahuaico"), 1:2],  col="black", pch=23, bg="grey")
-# points(NMDS.scores[(NMDS.scores$lake=="Atugyacu"), 1:2],  col="black", pch=8)
-# points(NMDS.scores[(NMDS.scores$lake=="Estrellascocha"), 1:2], col="black", pch=7)
-# points(NMDS.scores[(NMDS.scores$lake=="Larga"), 1:2], col="grey", pch=23, bg="black")
-# points(NMDS.scores[(NMDS.scores$lake=="Luspa"), 1:2],  col="black", pch=18)
-# points(NMDS.scores[(NMDS.scores$lake=="Sunincocha"), 1:2],  col="black", pch=13, bg="grey")
-# points(NMDS.scores[(NMDS.scores$lake=="Jigeno"), 1:2],  col="black", pch=17)
-# points(NMDS.scores[(NMDS.scores$lake=="Dos Choreras"), 1:2],  col="grey", pch=25, bg="black")
-
-#legend for lake monthly dataset
-# legend("bottomright",c("Llaviucu", "Toreadora", "Yantahuico", "Atugyacu", "Estrellascocha", "Larga", "Luspa",
-#                       "Sunincocha", "Jigeno", "Dos Choreras"),cex=.8, 
-#        pch=c(24,22,23,8,7,23,18,13,17,25),
-#        col=c("black","black","black","black","black", "grey", "black", "black","black", "grey"), 
-#        pt.bg = c("grey", "black", "grey", "white", "white", "black", "white", "grey", "white", "black"),
-#        ncol = 1, xpd = TRUE)
-
-
-
-#####
-##  Constrained multivariate ordination
-### Test for unique contributions
-
-# PCA_data <- PCA_data_yearly[,2:ncol(PCA_data_yearly)] %>%
-#   as.data.frame()
-# diat <- diat_yearly
 
 ##  Constrained multivariate ordination
 ### Test for unique contributions
@@ -588,7 +518,7 @@ heatmap(cor.r, Colv = NA, Rowv = NA, scale="column")
 # Triplot
 dev.off()
 png("outputs/CCA_cajas_diatoms_new_v2_geology.png", width=12, height=8, units="in", res=300)
-win.metafile("outputs/CCA_cajas_diatoms.wmf", width=10, height=8, res=300)
+win.metafile("outputs/CCA_cajas_diatoms_v2_geology.wmf", width=10, height=8, res=300)
 
 op <- par(no.readonly = TRUE)
 par(fig = c(0, 0.5, 0, 0.95))
@@ -719,11 +649,11 @@ par(op)
 source("scripts/functions/model.gams.R")
 
 # Select variable to model with GAM
-var <- c("Ca")
+var <- c("erosion_prop")
 env_var <- model_var[,var]
 
 # Run the function
-models.gam(diat,env_var, title = "Diatom distribution vs log10 Mix event")
+models.gam(diat,env_var, title = "Diatom distribution vs log10 Iron")
 
 
 ### CCA forward-step model selection

@@ -1,20 +1,20 @@
-#https://stackoverflow.com/questions/24863470/running-multiple-gamm-models-using-for-loop-or-lapply 
-
-d_resp <- d[ c("y", "y1")]
-d_pred <- d[, !(colnames(d) %in% c("y", "y1"))]
-
-## create a "matrix" list of dimensions i x j
-results_m <- vector("list", length=ncol(d_resp)*ncol(d_pred))
-dim(results_m) <- c(ncol(d_resp), ncol(d_pred))
-
-for(i in 1:ncol(d_resp)){
-  for(j in 1:ncol(d_pred)){
-    results_m[i, j][[1]] <- gamm(d_resp[, i] ~ s(d_pred[, j]))
-  }
-}
-
-# flatten the "matrix" list
-results_l <- do.call("list", results_m)
+# #https://stackoverflow.com/questions/24863470/running-multiple-gamm-models-using-for-loop-or-lapply 
+# 
+# d_resp <- d[ c("y", "y1")]
+# d_pred <- d[, !(colnames(d) %in% c("y", "y1"))]
+# 
+# ## create a "matrix" list of dimensions i x j
+# results_m <- vector("list", length=ncol(d_resp)*ncol(d_pred))
+# dim(results_m) <- c(ncol(d_resp), ncol(d_pred))
+# 
+# for(i in 1:ncol(d_resp)){
+#   for(j in 1:ncol(d_pred)){
+#     results_m[i, j][[1]] <- gamm(d_resp[, i] ~ s(d_pred[, j]))
+#   }
+# }
+# 
+# # flatten the "matrix" list
+# results_l <- do.call("list", results_m)
 
 
 ### Create plots of species distributions across environmental gradients 
@@ -53,11 +53,11 @@ diat_env <- diat_env[,-1]
 diatom_env_long <- diat_env %>%
   gather(key = taxa, value = count, -names(model_var), 
          -Row.names, -names(meta), -Latitude, -Longitude) %>%
-  filter(str_detect(taxa, "Discostella|Aulacoseira|Pseudostaurosira|Staurosirella|Achnanthidium"))
+  filter(str_detect(taxa, "Discostella|Aulacoseira"))
 
 # calculate relative abundance to plot seasonal variation of species by altitude
 diat_spp_month_ra <- diatom_env_long %>%
-  group_by(taxa, Month, Lake, secchi_m,mix_event,Altitude) %>% #here group by variables of interest
+  group_by(taxa, Month, Lake, mix_event,Ca) %>% #here group by variables of interest
   summarise(count = sum(count)) %>%
   #filter(!count == "0" ) %>% #this is to remove empty samples (rows)
   ungroup() %>%
@@ -66,7 +66,7 @@ diat_spp_month_ra <- diatom_env_long %>%
   ungroup()  
   
 # Bar plot
-spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_percent, x=fct_reorder2(Lake,relative_abundance_percent,Altitude))) +
+spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_percent, x=fct_reorder2(Lake,relative_abundance_percent,mix_event))) +
   #geom_point(aes(size=Altitude))+  #coord_flip() +
   geom_bar(position = "fill", stat="identity")+  #coord_flip() +
   facet_wrap(Month~., scales = "free") +
@@ -77,7 +77,7 @@ spp.plot <- ggplot(diat_spp_month_ra, aes(fill = taxa, y = relative_abundance_pe
 spp.plot
 
 # Point-sized plot
-spp.plot <- ggplot(diat_spp_month_ra, aes(y = taxa, x=fct_reorder2(Lake,relative_abundance_percent,mix_event), colour=(10^secchi_m))) +
+spp.plot <- ggplot(diat_spp_month_ra, aes(y = taxa, x=fct_reorder2(Lake,relative_abundance_percent,mix_event), colour=(10^Ca))) +
   geom_point(aes(size=relative_abundance_percent))+  #coord_flip() +
   #geom_bar(position = "fill", stat="identity")+  #coord_flip() +
   facet_wrap(Month~., scales = "free") +
