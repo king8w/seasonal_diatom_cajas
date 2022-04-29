@@ -20,7 +20,7 @@
 ### Create plots of species distributions across environmental gradients 
 # diatoms are counts, species present in more than 20 samples
 diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep=";")
-ecogroups <- read.csv("data/EcoGroups.csv", row.names = 1, sep = ",")
+#ecogroups <- read.csv("data/EcoGroups.csv", row.names = 1, sep = ",")
 #diat <- diat[,-ncol(diat)] #last column is NAs
 
 # Read in geographical coordinates lakes
@@ -28,7 +28,7 @@ spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
 #meta <- read.csv("data/metamonth.csv", row.names = 1)
 
 # Read most parsimonius CCA variables
-model_var <- read.csv("outputs/model_var.csv", row.names=1)
+model_var <- read.csv("outputs/model_var_v2.csv", row.names=1)
 
 ##Select most abundant species across samples
 abund <- apply(diat, 2, max)
@@ -88,5 +88,5 @@ spp.plot <- ggplot(diat_spp_month_ra, aes(y = taxa, x=fct_reorder2(Lake,relative
 spp.plot
 
 # Save the plot
-ggsave("outputs/ecogroups_altitude.png", plot=last_plot(), height=8, width=10,units="in",
+ggsave("outputs/Discostella_Aulacoseira_Ca_bymixing.png", plot=last_plot(), height=8, width=10,units="in",
        dpi = 400)
