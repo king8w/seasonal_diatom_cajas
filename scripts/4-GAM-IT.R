@@ -1,14 +1,31 @@
 ## GAM Models of LCBD or species richness against chemical, physical and spatial factors
+# contact: xavier.benito.granell@gmail.com
+
+#clear workspace
+rm(list=ls(all=TRUE))
+dev.off()
+
+#unload all loaded packages
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 
 #Load libraries for functions used
 library(adespatial)
 library(tidyverse)
 library(mgcv)
 library(ggplot2)
+library(ggcorrplot)
 library(gratia)
+library(vegan)
+library(psych)
 
 #Load the data for the diatoms
 diat <- read.csv("data/Diatoms_S_2019.csv", sep=";",row.names = 1)
+head(diat)
+
+#richness calculation
+richness<- apply(diat>0,1,sum)
+raremax <- min(rowSums(diat)) 
+Srare <- rarefy(diat, raremax)
 
 # Read in geographical coordinates lakes
 spatial_var <- read.csv("data/Spatial_Cajas2019.csv", row.names = 1)
@@ -35,29 +52,29 @@ LCBD$sign <- data.frame(diatomsLCBD$p.LCBD)
 colnames(LCBD[,4]) <- "sign"
 LCBD$sign.ad <- data.frame(diatomsLCBD$p.adj)
 
-#richness calculation
-richness<- apply(diat>0,1,sum)
-
 #LCBD - richness relationship
 LCBD$richness <- richness
+LCBD$Srare <- Srare
 plot(LCBD$richness, LCBD$LCBD)
+plot(LCBD$Srare, LCBD$LCBD)
+
 cor.test(LCBD$richness, LCBD$LCBD, method = "spearman")
+cor.test(LCBD$Srare, LCBD$LCBD, method = "spearman")
 
 LCBD_df <- data.frame(LCBD)
 
 # Plot LCBD-species richness
-LCBDrich <- ggplot(data=LCBD_df, aes(x=richness, y=LCBD))+
+LCBDrich <- ggplot(data=LCBD_df, aes(x=Srare, y=LCBD))+
   geom_point()+
   geom_smooth(method=lm)+
-  #annotate("text", x = 35, y = 0.0065, label = "")+
-  #annotate("text", x = 35, y = 0.0064, label = "italic(p) < 0.01", parse=TRUE)+
   xlab("Species richness")+
-  theme_bw()
+  theme_classic()
 LCBDrich
 
 ## Prepare data to fit GAM model on LCBD
 # Read most parsimonius CCA variables
 model_var <- read.csv("outputs/model_var_v2.csv", row.names=1)
+model_var <- read.csv("outputs/model_var.csv", row.names=1) 
 
 #merge by row.names with model var previously subset from CCA
 df1 <- merge(LCBD_df, model_var, by=0)
@@ -65,16 +82,54 @@ row.names(df1) <- df1$Row.names
 df1 <- df1[,!names(df1) %in% c("Row.names")]
 
 model_LCBD_var <- merge(df1, meta, by=0) %>%
-  dplyr::select(-Row.names)
+  dplyr::select(-Row.names) %>%
+  mutate(month=recode(Month,
+                      "June"=1,
+                      "September"=2,
+                      "December"=3,
+                      "February"=4)) %>%
+  mutate(basin=recode(SubCuenca,"Tomebamba"=1, "Canar"=2, "Balao"=3, "Yanuncay"=4)) %>%
+  mutate(geology=recode(rock_type, "andesite"=1, "rhyolite"=2, "dacite"=3)) %>%
+  select(-c("Month", "SubCuenca", "rock_type", "Vertiente", "Lake")) %>%
+  select(-c(2,3,4,5))
 
 # Make correlations with environmental variables
-cor(model_LCBD_var[,1], model_LCBD_var[,7:19], method = "spearman")
+cor(model_LCBD_var, method = "spearman")
+corr.test(model_LCBD_var, method = "spearman", ci=TRUE)
 
+plot(model_LCBD_var$Fe, model_LCBD_var$LCBD)
+
+
+corr <- round(cor(model_LCBD_var), 2)
+p.mat <- cor_pmat(model_LCBD_var)
+head(corr)
+
+ggcorrplot(corr)
+ggcorrplot(corr, hc.order = TRUE, type = "lower")
+
+# make some plots
+boxplot(model_LCBD_var$LCBD ~ month, data = model_LCBD_var, ylab="LCBD", main="Month")
+boxplot(model_LCBD_var$LCBD ~ geology, data = model_LCBD_var, ylab="LCBD", main="Geology")
+boxplot(model_LCBD_var$LCBD ~ basin, data = model_LCBD_var, ylab="LCBD", main="Basin")
+
+model_LCBD_var$Lake <- meta$Lake[-1]
+
+ggplot(model_LCBD_var, aes(x = reorder(Lake, LCBD, FUN = median), y = LCBD)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0.2)) +
+  theme_classic(base_size = 14) +
+  xlab("Lake") +
+  ylab("LCBD")
+
+LCBD_anova <- aov(LCBD ~ Lake, data = model_LCBD_var)
+summary(LCBD_anova)
+
+dev.off()
 
 # Linear model + spatial smooths of LCBD
 set.seed(10) #set a seed so this is repeatable
-mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + Ca + Mg + K + Alkalinity + Fe + waterT + lake_catch_ratio + mix_event +
-              + secchi_m + Zmax_m + Altitude + wetland + bare_rock,
+mod1 <- gam(LCBD ~ s(Latitude, Longitude, k=5) + Ca + Mg + Alkalinity + SO4 + Si + Altitude + secchi_m + Fe + erosion_prop + lake_catch_ratio + mix_event +
+              waterT,
             method="REML", data=model_LCBD_var, select=TRUE, 
             family=gaussian(link = "log"))
 
@@ -87,8 +142,8 @@ appraise(mod1)
 gam.check(mod1)
 
 # Linear model + spatial smooths of species richness
-mod2 <- gam(richness ~ s(Latitude, Longitude, k=5) + Ca + Mg + K + Alkalinity + Fe + waterT + lake_catch_ratio + mix_event +
-              + secchi_m + Zmax_m + Altitude + wetland + bare_rock,
+mod2 <- gam(richness ~ s(Latitude, Longitude, k=5) +Ca + Mg + Alkalinity + SO4 + Si + Altitude + secchi_m + Fe + erosion_prop + lake_catch_ratio + mix_event +
+              waterT,
             method="REML", data=model_LCBD_var, select=TRUE, 
             family=gaussian(link = "log"))
 
@@ -106,7 +161,7 @@ modPred_res <-as.data.frame(rbind(
   round(summary(mod1)$p.table, digits=4)[-1,]))
 
 modPred_res$predictor <- rep(c(names(model_var))) #doesnt work
-modPred_res$expl.var <- rep(c("LCBD", "richness"), each=13)
+modPred_res$expl.var <- rep(c("LCBD", "richness"), each=12)
 colnames(modPred_res)<- c("coefficient", "SE", "z_value", "P_value","predictor","expl.var")
 
 modPred_res$coefficient<- as.numeric(as.character(modPred_res$coefficient))
