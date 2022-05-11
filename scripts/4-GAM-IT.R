@@ -64,7 +64,7 @@ cor.test(LCBD$Srare, LCBD$LCBD, method = "spearman")
 LCBD_df <- data.frame(LCBD)
 
 # Plot LCBD-species richness
-LCBDrich <- ggplot(data=LCBD_df, aes(x=Srare, y=LCBD))+
+LCBDrich <- ggplot(data=LCBD_df, aes(x=richness, y=LCBD))+
   geom_point()+
   geom_smooth(method=lm)+
   xlab("Species richness")+
@@ -91,28 +91,31 @@ model_LCBD_var <- merge(df1, meta, by=0) %>%
   mutate(basin=recode(SubCuenca,"Tomebamba"=1, "Canar"=2, "Balao"=3, "Yanuncay"=4)) %>%
   mutate(geology=recode(rock_type, "andesite"=1, "rhyolite"=2, "dacite"=3)) %>%
   select(-c("Month", "SubCuenca", "rock_type", "Vertiente", "Lake")) %>%
-  select(-c(2,3,4,5))
+  select(-c(2,3,4,5)) %>%
+  select(-c("month", "basin", "geology"))
 
 # Make correlations with environmental variables
-cor(model_LCBD_var, method = "spearman")
+corr <- cor(model_LCBD_var, method = "spearman")
 corr.test(model_LCBD_var, method = "spearman", ci=TRUE)
 
 plot(model_LCBD_var$Fe, model_LCBD_var$LCBD)
-
 
 corr <- round(cor(model_LCBD_var), 2)
 p.mat <- cor_pmat(model_LCBD_var)
 head(corr)
 
-ggcorrplot(corr)
-ggcorrplot(corr, hc.order = TRUE, type = "lower")
+ggcorrplot(corr, hc.order = TRUE, p.mat = p.mat, insig = "blank", type = "lower")
+
+ggsave("outputs/LCBD_correlations.png", plot=last_plot(), height=8, width=10,units="in",
+       dpi = 400)
 
 # make some plots
 boxplot(model_LCBD_var$LCBD ~ month, data = model_LCBD_var, ylab="LCBD", main="Month")
 boxplot(model_LCBD_var$LCBD ~ geology, data = model_LCBD_var, ylab="LCBD", main="Geology")
 boxplot(model_LCBD_var$LCBD ~ basin, data = model_LCBD_var, ylab="LCBD", main="Basin")
 
-model_LCBD_var$Lake <- meta$Lake[-1]
+
+model_LCBD_var$Lake <- meta$Lake
 
 ggplot(model_LCBD_var, aes(x = reorder(Lake, LCBD, FUN = median), y = LCBD)) + 
   geom_boxplot() +
@@ -123,6 +126,10 @@ ggplot(model_LCBD_var, aes(x = reorder(Lake, LCBD, FUN = median), y = LCBD)) +
 
 LCBD_anova <- aov(LCBD ~ Lake, data = model_LCBD_var)
 summary(LCBD_anova)
+
+ggsave("outputs/LCBD_lakes.png", plot=last_plot(), height=8, width=10,units="in",
+       dpi = 400)
+
 
 dev.off()
 
