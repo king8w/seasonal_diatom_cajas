@@ -74,7 +74,7 @@ LCBDrich
 ## Prepare data to fit GAM model on LCBD
 # Read most parsimonius CCA variables
 model_var <- read.csv("outputs/model_var_v2.csv", row.names=1)
-model_var <- read.csv("outputs/model_var.csv", row.names=1) 
+#model_var <- read.csv("outputs/model_var.csv", row.names=1) 
 
 #merge by row.names with model var previously subset from CCA
 df1 <- merge(LCBD_df, model_var, by=0)
@@ -116,18 +116,29 @@ boxplot(model_LCBD_var$LCBD ~ basin, data = model_LCBD_var, ylab="LCBD", main="B
 
 
 model_LCBD_var$Lake <- meta$Lake
+model_LCBD_var$Month <- meta$Month
 
-ggplot(model_LCBD_var, aes(x = reorder(Lake, LCBD, FUN = median), y = LCBD)) + 
+LCBD_lake <- ggplot(model_LCBD_var, aes(x = reorder(Lake, LCBD, FUN = median), y = LCBD)) + 
   geom_boxplot() +
   geom_jitter(position=position_jitter(0.2)) +
   theme_classic(base_size = 14) +
   xlab("Lake") +
   ylab("LCBD")
 
+LCBD_month <- ggplot(model_LCBD_var, aes(x = Month, y = LCBD)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0.2)) +
+  theme_classic(base_size = 14) +
+  xlab("Month") +
+  ylab("LCBD")
+
+
 LCBD_anova <- aov(LCBD ~ Lake, data = model_LCBD_var)
+LCBD_anova <- aov(LCBD ~ Month, data = model_LCBD_var)
+
 summary(LCBD_anova)
 
-ggsave("outputs/LCBD_lakes.png", plot=last_plot(), height=8, width=10,units="in",
+ggsave("outputs/LCBD_month.png", plot=last_plot(), height=8, width=10,units="in",
        dpi = 400)
 
 
