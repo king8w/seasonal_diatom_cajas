@@ -46,8 +46,10 @@ str(meta)
 
 #read in environmental data (original analysis)
 env <- read.csv("data/monthlyENV.csv", row.names = 1)
-correct_id <- read.csv("data/monthlyenv_intermediate.csv", sep = ";", row.names = 1)
-id_env <- row.names(correct_id)
+row.names(env)[11] <- "CJ-001-S"
+id_env <- row.names(env)
+#correct_id <- read.csv("data/monthlyenv_intermediate.csv", sep = ";", row.names = 1)
+#id_env <- row.names(correct_id)
 names(env)
 head(env)
 
@@ -86,7 +88,7 @@ names(catchment_var)
 # physics <- physics[,!names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "wetland", "waterT", "erosion", "water_bodies", "erosion_prop", "rock_type")]
 # full_physics <- cbind(catchment_var, physics)
 
-# Put variables to the group that belongs to
+# Assign variables to the group that belongs to
 physics[,c("Heat","Zmax_m", "WRT")] <- catchment_var[,c("Heat","Zmax_m", "WRT")]
 physics <- physics[,!names(physics) %in% c("Fe", "TP", "DOC", "TOC", "wetland", "waterT","erosion","water_bodies","erosion_prop","rock_type")]
 catchment_var <- catchment_var[,!names(catchment_var) %in% c("Heat","Zmax_m","WRT")] %>%
@@ -97,8 +99,11 @@ chemical_var <- chemical_var[,!names(chemical_var) %in% c("secchi_m")]
 phyto_richn <- read.csv("data/phyto_richness.csv", row.names=1)
 colnames(phyto_richn) <- c("phyto_richness")
 
+# Read in the fDOM variable
+fDOM <- read.csv("data/fDOM.csv", row.names=1)
+
 # Combine full_physics and chemical data for data exploration
-full_env <- cbind(chemical_var, physics, catchment_var, phyto_richn)
+full_env <- cbind(chemical_var, physics, catchment_var, phyto_richn, fDOM)
 names(full_env)
 head(full_env)
 
@@ -150,7 +155,8 @@ env_trans <- transform(full_env, Alkalinity=log10(Alkalinity+0.25), Altitude=log
                     catch_volume_ratio=log10(catch_volume_ratio+0.50),
                     mix_event=log10(mix_event+0.25), waterT=log10(waterT+0.25),
                     phyto_richness=sqrt(phyto_richness),
-                    fetch=log10(fetch+0.25))
+                    fetch=log10(fetch+0.25),
+                    fDOM=log10(fDOM+0.25))
 
 #Check explanatory variable dataset colinearity
 pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.panel = panel.cor, gap = 0, cex.labels = 1, cex=1.5, font.labels = 1)
@@ -231,11 +237,12 @@ colnames(data_full)
 par(mar=c(3,3,2,1),
     cex.axis = 1)
 par(mfrow=c(6,6))
-nms <- colnames(data_full[,1:23])
-for (i in 1:23) {
+nms <- colnames(data_full[,1:24])
+for (i in 1:24) {
   boxplot(data_full[, i] ~ rock_type, data = data_full, ylab=NULL)
   title(nms[i])
 }
+dev.off()
 
 #raw data
 for (i in 1:14) {
@@ -669,7 +676,7 @@ anova.cca <- do.call(rbind, ccaResult$anov)
 anova.cca <- filter(anova.cca, !grepl("Residual",row.names(anova.cca)))
 vec <- anova.cca[,4]
 names(vec) <- row.names(anova.cca)
-barplot(vec, col = "grey60", cex.names=0.7, las=1, horiz=T)
+barplot(vec, col = "grey60", cex.names=0.5, las=1, horiz=T)
 abline(v=0.05)
 
 dev.off()

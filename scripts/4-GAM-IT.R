@@ -23,7 +23,6 @@ diat <- read.csv("data/Diatoms_S_2019.csv", sep=";",row.names = 1)
 head(diat)
 
 #richness calculation
-richness<- apply(diat>0,1,sum)
 raremax <- min(rowSums(diat)) 
 Srare <- rarefy(diat, raremax)
 
@@ -39,6 +38,9 @@ diat <- diat/total*100
 abund <- apply(diat, 2, max)
 n.occur <- apply(diat>0, 2, sum)
 diat <- diat[, n.occur>1 & abund>2] #more than 3% of RA and present in >1 sample
+
+#richness calculation
+richness<- apply(diat>0,1,sum)
 
 # Perform LCBD
 diatomsLCBD <- beta.div(diat, method = "hellinger", nperm = 999, adj = TRUE, sqrt.D=FALSE)
@@ -95,8 +97,8 @@ model_LCBD_var <- merge(df1, meta, by=0) %>%
   select(-c("month", "basin", "geology"))
 
 # Make correlations with environmental variables
-corr <- cor(model_LCBD_var, method = "spearman")
-corr.test(model_LCBD_var, method = "spearman", ci=TRUE)
+# corr <- cor(model_LCBD_var, method = "spearman")
+# corr.test(model_LCBD_var, method = "spearman", ci=TRUE)
 
 plot(model_LCBD_var$Fe, model_LCBD_var$LCBD)
 
