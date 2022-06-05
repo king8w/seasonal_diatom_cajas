@@ -106,9 +106,10 @@ corr <- round(cor(model_LCBD_var), 2)
 p.mat <- cor_pmat(model_LCBD_var)
 head(corr)
 
-ggcorrplot(corr, hc.order = TRUE, p.mat = p.mat, insig = "blank", type = "lower")
+ggcorrplot(corr, hc.order = TRUE, p.mat = p.mat, insig = "blank", type = "lower", lab = TRUE,
+           ggtheme = ggplot2::theme_classic(), outline.color = "white")
 
-ggsave("outputs/LCBD_correlations.png", plot=last_plot(), height=8, width=10,units="in",
+ggsave("outputs/LCBD_correlations_v2.png", plot=last_plot(), height=8, width=10,units="in",
        dpi = 400)
 
 # make some plots
@@ -143,8 +144,18 @@ summary(LCBD_anova)
 ggsave("outputs/LCBD_month.png", plot=last_plot(), height=8, width=10,units="in",
        dpi = 400)
 
-
 dev.off()
+
+#Combine plots
+plot_composite <- plot_grid(LCBD_month, LCBD_lake, ncol = 1,  
+                            rel_heights = c(1, 1), align="v", labels = "AUTO") +
+  theme(plot.margin = unit(c(0.5, -1, 0.5, 0.5), "cm"))
+plot_composite
+
+ggsave("outputs/LCBD_month_lake.png", plot=last_plot(), height=8, width=10,units="in",
+       dpi = 400)
+
+
 
 # Linear model + spatial smooths of LCBD
 set.seed(10) #set a seed so this is repeatable
