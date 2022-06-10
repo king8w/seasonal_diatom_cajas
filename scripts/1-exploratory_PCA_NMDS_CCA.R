@@ -14,6 +14,7 @@ library(vegan)
 library(adespatial)
 library(usdm)
 library(tidyverse)
+library(ggcorrplot)
 
 #Read monthly water chemistry data
 # env <- read.csv("data/chemistry_monthly.csv", sep = ";", row.names = 1) 
@@ -161,6 +162,18 @@ env_trans <- transform(full_env, Alkalinity=log10(Alkalinity+0.25), Altitude=log
 #Check explanatory variable dataset colinearity
 pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.panel = panel.cor, gap = 0, cex.labels = 1, cex=1.5, font.labels = 1)
 
+# Make correlation plot with ggcorrplot()
+corr <- round(cor(env_trans), 2)
+p.mat <- cor_pmat(env_trans)
+head(corr)
+
+ggcorrplot(corr, hc.order = TRUE, p.mat = p.mat, sig.level = 0.10, insig = "blank", type = "lower", lab = FALSE,
+           ggtheme = ggplot2::theme_classic(), outline.color = "white", tl.cex = 9)
+
+
+ggsave("outputs/env_data_ALL_Corr.png", plot=last_plot(), height=8, width=10,units="in",
+       dpi = 400)
+
 #Check adequacy of PCA ordination
 source("scripts/pcor.test.R")
 
@@ -175,7 +188,7 @@ PCA_data <- env_trans
 # drop  chemical variables that do not have monthly observations (and others)
 PCA_data_monthly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", "WRT",
                                                        "PajonalRoca", "Roca", "Pajonal","erosion","TP","TOC","DOC",
-                                                       "phyto_richness", "Color", "fetch")]
+                                                       "phyto_richness", "Color", "fetch", "erosion_prop")]
 
 
 PCA_data <- PCA_data_monthly #monthly
@@ -304,12 +317,6 @@ axis.expl <- function(mod, axes = 1:2) {
 # general plot
 plot(mod_pca, scaling=3)
 
-#custom plot
-png("outputs/PCA_monthly_Cajas_diatoms_v6_geology.png", width=10, height=8, units="in", res=300)
-win.metafile("outputs/PCA_monthly_Cajas_diatoms_v6_geology.wmf", width=10, height=8, res=300)
-
-par(mfrow=c(1,2))
-par(mar=c(5,4,3,3)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
 
 #Factor scores (samples)
 #Create data frame with factor scores, month and lake groupings
@@ -341,6 +348,12 @@ PCA.scores <- PCA.scores[,-1]
 #                          PCA2=scores(mod_pca, display = "sites")[,2], 
 #                          lake=PCA_data_yearly$lake)
 
+#custom plot
+png("outputs/PCA_monthly_Cajas_diatoms_v6_geology.png", width=10, height=8, units="in", res=300)
+win.metafile("outputs/PCA_monthly_Cajas_diatoms_v7_fDOM.wmf", width=10, height=8, res=300)
+
+par(mfrow=c(1,2))
+par(mar=c(5,4,3,3)) #sets the bottom, left, top and right margins respectively of the plot region in number of lines of text. 
 
 plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab=paste("PCA1","(",round(labs[1],2),"%",")"), ylab=paste("PCA2","(",round(labs[2],2),"%",")"))
 title("Sites")
@@ -367,69 +380,69 @@ points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="December"),
 points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="February"), 1:2],  col="orange", pch=19)
 
 #legend for monhtly dataset
-legend("bottomleft",c("June", "September", "December", "February",
+legend("topleft",c("June", "September", "December", "February",
                       "Andesite", "Rhyolite", "Dacite")
        , cex=.8, pch=c(17,15,18,19,NA,NA,NA,NA),
        text.col=c("black", "black", "black", "black",
                   "forestgreen", "blue", "orange"), 
        ncol = 2, xpd = TRUE)
 
-#manual coding for geological units of monthly data
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="march"), 1:2], col="forestgreen", pch=21, bg="forestgreen")
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="april"), 1:2], col="forestgreen", pch=22, bg="forestgreen")
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="may"), 1:2],  col="forestgreen", pch=2)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="june"), 1:2],  col="forestgreen", pch=3)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="july"), 1:2],  col="forestgreen", pch=4)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="september"), 1:2],  col="forestgreen", pch=5)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="october"), 1:2],  col="forestgreen", pch=6)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="november"), 1:2],  col="forestgreen", pch=7)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="december"), 1:2],  col="forestgreen", pch=8)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="january"), 1:2],  col="forestgreen", pch=23, bg="forestgreen")
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="february"), 1:2],  col="forestgreen", pch=24, bg="forestgreen")
+# #manual coding for geological units of monthly data
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="march"), 1:2], col="forestgreen", pch=21, bg="forestgreen")
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="april"), 1:2], col="forestgreen", pch=22, bg="forestgreen")
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="may"), 1:2],  col="forestgreen", pch=2)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="june"), 1:2],  col="forestgreen", pch=3)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="july"), 1:2],  col="forestgreen", pch=4)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="september"), 1:2],  col="forestgreen", pch=5)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="october"), 1:2],  col="forestgreen", pch=6)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="november"), 1:2],  col="forestgreen", pch=7)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="december"), 1:2],  col="forestgreen", pch=8)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="january"), 1:2],  col="forestgreen", pch=23, bg="forestgreen")
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="february"), 1:2],  col="forestgreen", pch=24, bg="forestgreen")
+# 
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="march"), 1:2], col="blue", pch=21, bg="blue")
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="april"), 1:2], col="blue", pch=22, bg="blue")
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="may"), 1:2],  col="blue", pch=2)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="june"), 1:2],  col="blue", pch=3)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="july"), 1:2],  col="blue", pch=4)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="september"), 1:2],  col="blue", pch=5)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="october"), 1:2],  col="blue", pch=6)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="november"), 1:2],  col="blue", pch=7)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="december"), 1:2],  col="blue", pch=8)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="january"), 1:2],  col="blue", pch=23, bg="blue")
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="february"), 1:2],  col="blue", pch=24, bg="blue")
+# 
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="march"), 1:2], col="orange", pch=21, bg="orange")
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="april"), 1:2], col="orange", pch=22, bg="orange")
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="may"), 1:2],  col="orange", pch=2)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="june"), 1:2],  col="orange", pch=3)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="july"), 1:2],  col="orange", pch=4)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="september"), 1:2],  col="orange", pch=5)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="october"), 1:2],  col="orange", pch=6)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="november"), 1:2],  col="orange", pch=7)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="december"), 1:2],  col="orange", pch=8)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="january"), 1:2],  col="orange", pch=23, bg="orange")
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="february"), 1:2],  col="orange", pch=24, bg="orange")
+# 
+# #legend for monhtly dataset
+# legend("bottomleft",c("march", "april", "may", "june", "july", "september", "october", "november", "december", "january", "february",
+#                       "Andesite", "Rhyolite", "Dacite")
+#        , cex=.8, pch=c(21,22,2,3,4,5,6,7,8,23,24, NA, NA, NA, NA),
+#        col=c("black", "black", "black", "black","black", "black", "black", "black","black", "black", "black", "black"),
+#        pt.bg = c("grey","grey", NA,NA,NA,NA,NA,NA,NA,"grey","grey"),
+#        text.col = c("black", "black", "black", "black","black","black","black","black","black","black","black",
+#            "forestgreen", "blue", "orange"),
+#        ncol = 2, xpd = TRUE)
 
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="march"), 1:2], col="blue", pch=21, bg="blue")
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="april"), 1:2], col="blue", pch=22, bg="blue")
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="may"), 1:2],  col="blue", pch=2)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="june"), 1:2],  col="blue", pch=3)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="july"), 1:2],  col="blue", pch=4)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="september"), 1:2],  col="blue", pch=5)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="october"), 1:2],  col="blue", pch=6)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="november"), 1:2],  col="blue", pch=7)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="december"), 1:2],  col="blue", pch=8)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="january"), 1:2],  col="blue", pch=23, bg="blue")
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="february"), 1:2],  col="blue", pch=24, bg="blue")
 
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="march"), 1:2], col="orange", pch=21, bg="orange")
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="april"), 1:2], col="orange", pch=22, bg="orange")
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="may"), 1:2],  col="orange", pch=2)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="june"), 1:2],  col="orange", pch=3)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="july"), 1:2],  col="orange", pch=4)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="september"), 1:2],  col="orange", pch=5)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="october"), 1:2],  col="orange", pch=6)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="november"), 1:2],  col="orange", pch=7)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="december"), 1:2],  col="orange", pch=8)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="january"), 1:2],  col="orange", pch=23, bg="orange")
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="february"), 1:2],  col="orange", pch=24, bg="orange")
-
-#legend for monhtly dataset
-legend("bottomleft",c("march", "april", "may", "june", "july", "september", "october", "november", "december", "january", "february",
-                      "Andesite", "Rhyolite", "Dacite")
-       , cex=.8, pch=c(21,22,2,3,4,5,6,7,8,23,24, NA, NA, NA, NA),
-       col=c("black", "black", "black", "black","black", "black", "black", "black","black", "black", "black", "black"),
-       pt.bg = c("grey","grey", NA,NA,NA,NA,NA,NA,NA,"grey","grey"),
-       text.col = c("black", "black", "black", "black","black","black","black","black","black","black","black",
-           "forestgreen", "blue", "orange"),
-       ncol = 2, xpd = TRUE)
-
-
-#manual coding for months
-#points(PCA.scores[,1], PCA.scores[,2], pch=20, col="darkgrey")
-points(PCA.scores[(PCA.scores$geology=="andesite"), 1:2], col="black", pch=24, bg="grey")
-points(PCA.scores[(PCA.scores$geology=="rhyolite"), 1:2], col="black", pch=22, bg="black")
-points(PCA.scores[(PCA.scores$geology=="dacite"), 1:2],  col="black", pch=23, bg="grey")
-
-ordihull(mod_pca, PCA.scores$month, col=1:12)
-ordihull(mod_pca, PCA.scores$geology, col=1:3)
+# #manual coding for months
+# #points(PCA.scores[,1], PCA.scores[,2], pch=20, col="darkgrey")
+# points(PCA.scores[(PCA.scores$geology=="andesite"), 1:2], col="black", pch=24, bg="grey")
+# points(PCA.scores[(PCA.scores$geology=="rhyolite"), 1:2], col="black", pch=22, bg="black")
+# points(PCA.scores[(PCA.scores$geology=="dacite"), 1:2],  col="black", pch=23, bg="grey")
+# 
+# ordihull(mod_pca, PCA.scores$month, col=1:12)
+# ordihull(mod_pca, PCA.scores$geology, col=1:3)
 
 
 
@@ -469,21 +482,21 @@ ordihull(mod_pca, PCA.scores$geology, col=1:3)
 # ordispider(mod_pca, PCA.scores$month, col=1:4)
 
 
-# manual coding for pre_month
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="May"), 1:2], col="forestgreen", pch=17)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="August"), 1:2], col="forestgreen", pch=15)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="November"), 1:2],  col="forestgreen", pch=18)
-points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="January"), 1:2],  col="forestgreen", pch=19)
-
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="May"), 1:2], col="blue", pch=17)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="August"), 1:2], col="blue", pch=15)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="November"), 1:2],  col="blue", pch=18)
-points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="January"), 1:2],  col="blue", pch=19)
-
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="May"), 1:2], col="orange", pch=17)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="August"), 1:2], col="orange", pch=15)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="November"), 1:2],  col="orange", pch=18)
-points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="January"), 1:2],  col="orange", pch=19)
+# # manual coding for pre_month
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="May"), 1:2], col="forestgreen", pch=17)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="August"), 1:2], col="forestgreen", pch=15)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="November"), 1:2],  col="forestgreen", pch=18)
+# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="January"), 1:2],  col="forestgreen", pch=19)
+# 
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="May"), 1:2], col="blue", pch=17)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="August"), 1:2], col="blue", pch=15)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="November"), 1:2],  col="blue", pch=18)
+# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="January"), 1:2],  col="blue", pch=19)
+# 
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="May"), 1:2], col="orange", pch=17)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="August"), 1:2], col="orange", pch=15)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="November"), 1:2],  col="orange", pch=18)
+# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="January"), 1:2],  col="orange", pch=19)
 
 
 
@@ -542,22 +555,22 @@ PCA_result <- PCA_result %>% mutate(month=recode(month,
   mutate(basin=recode(basin,"Tomebamba"=1, "Canar"=2, "Balao"=3, "Yanuncay"=4)) %>%
   mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
 
-# # Check if a new variable "month" has significnat correlations with PCA axes
-PCA_result <- PCA_result %>% mutate(month=recode(month,
-                                                 "january"=1,
-                                                 "february"=2,
-                                                 "march"=3,
-                                                 "april"=4,
-                                                 "may"=5,
-                                                 "june"=6,
-                                                 "july"=7,
-                                                 "august"=8,
-                                                 "september"=9,
-                                                 "october"=10,
-                                                 "november"=11,
-                                                 "december"=12)) %>%
-  mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
-
+# # # Check if a new variable "month" has significnat correlations with PCA axes
+# PCA_result <- PCA_result %>% mutate(month=recode(month,
+#                                                  "january"=1,
+#                                                  "february"=2,
+#                                                  "march"=3,
+#                                                  "april"=4,
+#                                                  "may"=5,
+#                                                  "june"=6,
+#                                                  "july"=7,
+#                                                  "august"=8,
+#                                                  "september"=9,
+#                                                  "october"=10,
+#                                                  "november"=11,
+#                                                  "december"=12)) %>%
+#   mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
+# 
 
 # Check if a new variable "month" has significnat correlations with PCA axes
 # PCA_result <- PCA_result %>% mutate(Month_pre=recode(month_pre,
@@ -705,7 +718,7 @@ vifstep(model_var) #check out for multicollinearity
 #subset variables and save most parsimonius model variables selected by individual CCAs for later
 #model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2", "water_bodies", "wetland", "Zmax_m")]
 #model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2", "water_bodies", "phyto_richness", "secchi_m","wetland")]
-model_var <- model_var[,!names(model_var) %in% c("CA_m2", "Cond" ,"water_bodies")]
+model_var <- model_var[,!names(model_var) %in% c("CA_m2", "Cond" ,"water_bodies", "fDOM")]
 
 write.csv(model_var, "outputs/model_var_v2.csv")  
 
