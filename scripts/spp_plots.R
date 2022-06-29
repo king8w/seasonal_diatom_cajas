@@ -1,23 +1,5 @@
-# #https://stackoverflow.com/questions/24863470/running-multiple-gamm-models-using-for-loop-or-lapply 
-# 
-# d_resp <- d[ c("y", "y1")]
-# d_pred <- d[, !(colnames(d) %in% c("y", "y1"))]
-# 
-# ## create a "matrix" list of dimensions i x j
-# results_m <- vector("list", length=ncol(d_resp)*ncol(d_pred))
-# dim(results_m) <- c(ncol(d_resp), ncol(d_pred))
-# 
-# for(i in 1:ncol(d_resp)){
-#   for(j in 1:ncol(d_pred)){
-#     results_m[i, j][[1]] <- gamm(d_resp[, i] ~ s(d_pred[, j]))
-#   }
-# }
-# 
-# # flatten the "matrix" list
-# results_l <- do.call("list", results_m)
+### Create some plots of species distributions across environmental gradients 
 
-
-### Create plots of species distributions across environmental gradients 
 # diatoms are counts, species present in more than 20 samples
 diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep=";")
 #ecogroups <- read.csv("data/EcoGroups.csv", row.names = 1, sep = ",")

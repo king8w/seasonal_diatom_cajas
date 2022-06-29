@@ -1,5 +1,9 @@
-## Code for statistical analyses of diatom seasonal study in Cajas Lakes (Ecuador)
-# contact: xavier.benito.granell@gmail.com
+#---------------------------------------------------------------------------------------
+# Script: Exploratory analysis of environmental variables (PCA) and diatom-environment (CCA)
+# Paper: Space, not time, drive is driving contemporary planktic diatom species composition in tropical Andean lakes
+# Author: Benito, X.
+# e-mail: xavier.benito.granell@gmail.com
+#---------------------------------------------------------------------------------------
 
 #clear workspace
 rm(list=ls(all=TRUE))
@@ -16,51 +20,17 @@ library(usdm)
 library(tidyverse)
 library(ggcorrplot)
 
-#Read monthly water chemistry data
-# env <- read.csv("data/chemistry_monthly.csv", sep = ";", row.names = 1) 
-# id_env <- row.names(env)
-# lake_month_rock <- env %>% select(month,lake,rock_type)
-# env <- env %>% select(-c(month,lake,rock_type,Cl,Hg,Mn,Turbidity))
-# env <- as.data.frame(apply(apply(env, 2, gsub, patt=",", replace="."), 2, as.numeric)) #replace commas with dots for decimals
-# head(env)
-# row.names(env) <- id_env
-# 
-# chemical_premonth <- filter(env, grepl('MY|AU|N|JA', row.names(env)))
-# env <- chemical_premonth
-
-# # transform
-# env_trans <- transform(env, ChlA_a=log10(ChlA_a+0.25), Alkalinity=log10(Alkalinity+0.25), K=log10(K+0.25),
-#                        Na=log10(Na+0.25), Mg=log10(Mg+0.25), Ca=log10(Ca+0.25),
-#                       Fe=log10(Fe+0.25),DO=log10(DO+0.25),
-#                        Cond=log10(Cond+0.25), Color=log10(Color+0.25), Si=log10(Si+0.25),
-#                        SO4=log10(SO4+0.25), waterT=log10(waterT+0.25))
-# 
 #Read lake metadata for grouping
 meta <- read.csv("data/metamonth.csv", row.names = 1, sep=";")
 head(meta)
 str(meta)
 
-  #Prepare meta for pre_month dataset
-  # meta$Month_pre <- rep(c("November","January","May","August"), 1:nrow(meta), each = 1, len = nrow(meta))
-  # meta <- filter(meta, !grepl('023-S', row.names(meta)))
-
-
 #read in environmental data (original analysis)
 env <- read.csv("data/monthlyENV.csv", row.names = 1)
 row.names(env)[11] <- "CJ-001-S"
 id_env <- row.names(env)
-#correct_id <- read.csv("data/monthlyenv_intermediate.csv", sep = ";", row.names = 1)
-#id_env <- row.names(correct_id)
 names(env)
 head(env)
-
-
-#read in environmental data (intermediate months averaged)
-# env <- read.csv("data/monthlyenv_intermediate.csv", sep = ";", row.names = 1)
-# id_env <- row.names(env)
-# env <- as.data.frame(apply(apply(env, 2, gsub, patt=",", replace="."), 2, as.numeric)) #replace commas with dots for decimals
-# head(env)
-# row.names(env) <- id_env
 
 #read in lake physics data
 physics <- read.csv("data/lake_physics_data.csv", sep=";", row.names = 1)
@@ -85,10 +55,6 @@ catchment_var$erosion_prop <- physics$erosion_prop
 catchment_var$water_bodies <- physics$water_bodies
 names(catchment_var)
 
-# combine lake physics and subset of physical variables from full env
-# physics <- physics[,!names(physics) %in% c("secchi_m", "Fe", "TP", "DOC", "TOC", "wetland", "waterT", "erosion", "water_bodies", "erosion_prop", "rock_type")]
-# full_physics <- cbind(catchment_var, physics)
-
 # Assign variables to the group that belongs to
 physics[,c("Heat","Zmax_m", "WRT")] <- catchment_var[,c("Heat","Zmax_m", "WRT")]
 physics <- physics[,!names(physics) %in% c("Fe", "TP", "DOC", "TOC", "wetland", "waterT","erosion","water_bodies","erosion_prop","rock_type")]
@@ -108,13 +74,6 @@ full_env <- cbind(chemical_var, physics, catchment_var, phyto_richn, fDOM)
 names(full_env)
 head(full_env)
 
-  # substract CJ-023-S for pre_monthly data model
-  catchment_var2 <- filter(catchment_var, !grepl('023-S', row.names(catchment_var)))
-  physics_var2 <- filter(physics, !grepl('023-S', row.names(physics)))
-  phyto_richn <- phyto_richn[-14,]
-  full_env <- cbind(chemical_var, physics_var2, catchment_var2, phyto_richn)
-  
-  
 #Colinearity Panel Function
 #panel correlation plots to assess data distribution
 panel.hist <- function(x, ...) {     
@@ -162,40 +121,18 @@ env_trans <- transform(full_env, Alkalinity=log10(Alkalinity+0.25), Altitude=log
 #Check explanatory variable dataset colinearity
 pairs(env_trans, diag.panel = panel.hist, upper.panel = panel.smooth, lower.panel = panel.cor, gap = 0, cex.labels = 1, cex=1.5, font.labels = 1)
 
-# Make correlation plot with ggcorrplot()
-corr <- round(cor(env_trans), 2)
-p.mat <- cor_pmat(env_trans)
-head(corr)
-
-ggcorrplot(corr, hc.order = TRUE, p.mat = p.mat, sig.level = 0.10, insig = "blank", type = "lower", lab = FALSE,
-           ggtheme = ggplot2::theme_classic(), outline.color = "white", tl.cex = 9)
-
-
-ggsave("outputs/env_data_ALL_Corr.png", plot=last_plot(), height=8, width=10,units="in",
-       dpi = 400)
-
 #Check adequacy of PCA ordination
 source("scripts/pcor.test.R")
 
 # set PCA df to analyze
 PCA_data <- env_trans
 
-# drop  variables that do not have monthly observations
-# PCA_data_monthly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
-#                                                 "PajonalRoca", "WRT", "DOC", "TP","TOC", "Pajonal",
-#                                                 "K", "erosion", "Color")]
-
 # drop  chemical variables that do not have monthly observations (and others)
 PCA_data_monthly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", "WRT",
                                                        "PajonalRoca", "Roca", "Pajonal","erosion","TP","TOC","DOC",
                                                        "phyto_richness", "Color", "fetch", "erosion_prop")]
 
-
 PCA_data <- PCA_data_monthly #monthly
-
-# drop variables
-# PCA_data_yearly <- env_trans[,!names(env_trans) %in% c("Heat", "lenght_depth_ratio", "catch_volume_ratio", 
-#                                                 "PajonalRoca", "Roca", "Pajonal","erosion","TP","TOC","DOC")]
 
 # Average lake variables by Month factor
 PCA_data_yearly$month <- meta$Month
@@ -238,39 +175,6 @@ KMO(cor.r)
 
 #Test Barlett (p sign means adequate)
 cortest.bartlett(Cor.matrix)
-
-# Merge PCA data with lake metadata
-data_full <- merge(PCA_data, meta, by="row.names")
-data_full <- merge(PCA_data, lake_month_rock, by="row.names")
-
-data_full <- data_full[,-1]
-head(data_full)
-colnames(data_full)
-
-par(mar=c(3,3,2,1),
-    cex.axis = 1)
-par(mfrow=c(6,6))
-nms <- colnames(data_full[,1:24])
-for (i in 1:24) {
-  boxplot(data_full[, i] ~ rock_type, data = data_full, ylab=NULL)
-  title(nms[i])
-}
-dev.off()
-
-#raw data
-for (i in 1:14) {
-  boxplot(env[, i] ~ data_full$month, xlab=NULL, ylab=NULL)
-  title(nms[i])
-}
-
-subset <- data_full %>% 
-  filter(Lake %in% c("Luspa", "Larga", "Toreadora"))
-
-for (i in 1:25) {
-  boxplot(subset[, i] ~ Lake, data = subset, ylab=NULL, cex.axis=0.8)
-  title(nms[i])
-}
-dev.off()
 
 ## Run Principal Cmponent Analysis
 mod_pca <- rda(PCA_data, scale=TRUE)
@@ -317,7 +221,6 @@ axis.expl <- function(mod, axes = 1:2) {
 # general plot
 plot(mod_pca, scaling=3)
 
-
 #Factor scores (samples)
 #Create data frame with factor scores, month and lake groupings
 PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1], 
@@ -327,26 +230,6 @@ PCA.scores <- merge(PCA.scores, meta, by="row.names")
 row.names(PCA.scores) <- PCA.scores$Row.names
 colnames(PCA.scores) <- c("Row.names", "PCA1","PCA2","month","lake","vertiente","basin","geology")
 PCA.scores <- PCA.scores[,-1]
-
-# PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1],
-#                          PCA2=scores(mod_pca, display = "sites")[,2],
-#                          month=meta$Month,
-#                          #month_pre=meta$Month_pre, #ull here
-#                          lake=meta$Lake,
-#                          basin=meta$SubCuenca,
-#                          vertiente=meta$Vertiente,
-#                          geology=meta$rock_type)
-
-# #Create data frame with factor scores, month and lake groupings of monthly data
-# PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1],
-#                          PCA2=scores(mod_pca, display = "sites")[,2],
-#                          lake=lake_month_rock$lake,
-#                          month=lake_month_rock$month,
-#                          geology=lake_month_rock$rock_type)
-# #Create data frame with factor scores, month and lake groupings of yearly data
-# PCA.scores <- data.frame(PCA1=scores(mod_pca, display = "sites")[,1], 
-#                          PCA2=scores(mod_pca, display = "sites")[,2], 
-#                          lake=PCA_data_yearly$lake)
 
 #custom plot
 png("outputs/PCA_monthly_Cajas_diatoms_v6_geology.png", width=10, height=8, units="in", res=300)
@@ -359,9 +242,6 @@ plot(PCA.scores$PCA1, PCA.scores$PCA2, type = "n", xlab=paste("PCA1","(",round(l
 title("Sites")
 abline(h=0, col="grey")
 abline(v=0, col="grey")
-
-#automatic coding for basin
-# points(PCA.scores[,1], PCA.scores[,2], col=as.factor(PCA.scores$month), pch=20)
 
 # manual coding for geological units
 points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="June"), 1:2], col="forestgreen", pch=17)
@@ -387,146 +267,8 @@ legend("topleft",c("June", "September", "December", "February",
                   "forestgreen", "blue", "orange"), 
        ncol = 2, xpd = TRUE)
 
-# #manual coding for geological units of monthly data
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="march"), 1:2], col="forestgreen", pch=21, bg="forestgreen")
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="april"), 1:2], col="forestgreen", pch=22, bg="forestgreen")
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="may"), 1:2],  col="forestgreen", pch=2)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="june"), 1:2],  col="forestgreen", pch=3)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="july"), 1:2],  col="forestgreen", pch=4)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="september"), 1:2],  col="forestgreen", pch=5)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="october"), 1:2],  col="forestgreen", pch=6)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="november"), 1:2],  col="forestgreen", pch=7)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="december"), 1:2],  col="forestgreen", pch=8)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="january"), 1:2],  col="forestgreen", pch=23, bg="forestgreen")
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month=="february"), 1:2],  col="forestgreen", pch=24, bg="forestgreen")
-# 
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="march"), 1:2], col="blue", pch=21, bg="blue")
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="april"), 1:2], col="blue", pch=22, bg="blue")
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="may"), 1:2],  col="blue", pch=2)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="june"), 1:2],  col="blue", pch=3)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="july"), 1:2],  col="blue", pch=4)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="september"), 1:2],  col="blue", pch=5)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="october"), 1:2],  col="blue", pch=6)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="november"), 1:2],  col="blue", pch=7)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="december"), 1:2],  col="blue", pch=8)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="january"), 1:2],  col="blue", pch=23, bg="blue")
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month=="february"), 1:2],  col="blue", pch=24, bg="blue")
-# 
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="march"), 1:2], col="orange", pch=21, bg="orange")
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="april"), 1:2], col="orange", pch=22, bg="orange")
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="may"), 1:2],  col="orange", pch=2)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="june"), 1:2],  col="orange", pch=3)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="july"), 1:2],  col="orange", pch=4)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="september"), 1:2],  col="orange", pch=5)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="october"), 1:2],  col="orange", pch=6)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="november"), 1:2],  col="orange", pch=7)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="december"), 1:2],  col="orange", pch=8)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="january"), 1:2],  col="orange", pch=23, bg="orange")
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month=="february"), 1:2],  col="orange", pch=24, bg="orange")
-# 
-# #legend for monhtly dataset
-# legend("bottomleft",c("march", "april", "may", "june", "july", "september", "october", "november", "december", "january", "february",
-#                       "Andesite", "Rhyolite", "Dacite")
-#        , cex=.8, pch=c(21,22,2,3,4,5,6,7,8,23,24, NA, NA, NA, NA),
-#        col=c("black", "black", "black", "black","black", "black", "black", "black","black", "black", "black", "black"),
-#        pt.bg = c("grey","grey", NA,NA,NA,NA,NA,NA,NA,"grey","grey"),
-#        text.col = c("black", "black", "black", "black","black","black","black","black","black","black","black",
-#            "forestgreen", "blue", "orange"),
-#        ncol = 2, xpd = TRUE)
-
-
-# #manual coding for months
-# #points(PCA.scores[,1], PCA.scores[,2], pch=20, col="darkgrey")
-# points(PCA.scores[(PCA.scores$geology=="andesite"), 1:2], col="black", pch=24, bg="grey")
-# points(PCA.scores[(PCA.scores$geology=="rhyolite"), 1:2], col="black", pch=22, bg="black")
-# points(PCA.scores[(PCA.scores$geology=="dacite"), 1:2],  col="black", pch=23, bg="grey")
-# 
-# ordihull(mod_pca, PCA.scores$month, col=1:12)
-# ordihull(mod_pca, PCA.scores$geology, col=1:3)
-
-
-
-# 
-# 
-# #manual coding for months and basins
-# points(PCA.scores[(PCA.scores$basin=="Tomebamba" & PCA.scores$month=="June"), 1:2], col="forestgreen", pch=17)
-# points(PCA.scores[(PCA.scores$basin=="Tomebamba" & PCA.scores$month=="September"), 1:2], col="forestgreen", pch=15)
-# points(PCA.scores[(PCA.scores$basin=="Tomebamba" & PCA.scores$month=="December"), 1:2],  col="forestgreen", pch=18)
-# points(PCA.scores[(PCA.scores$basin=="Tomebamba" & PCA.scores$month=="February"), 1:2],  col="forestgreen", pch=19)
-# 
-# points(PCA.scores[(PCA.scores$basin=="Canar" & PCA.scores$month=="June"), 1:2], col="blue", pch=17)
-# points(PCA.scores[(PCA.scores$basin=="Canar" & PCA.scores$month=="September"), 1:2], col="blue", pch=15)
-# points(PCA.scores[(PCA.scores$basin=="Canar" & PCA.scores$month=="December"), 1:2],  col="blue", pch=18)
-# points(PCA.scores[(PCA.scores$basin=="Canar" & PCA.scores$month=="February"), 1:2],  col="blue", pch=19)
-# 
-# points(PCA.scores[(PCA.scores$basin=="Balao" & PCA.scores$month=="June"), 1:2], col="orange", pch=17)
-# points(PCA.scores[(PCA.scores$basin=="Balao" & PCA.scores$month=="September"), 1:2], col="orange", pch=15)
-# points(PCA.scores[(PCA.scores$basin=="Balao" & PCA.scores$month=="December"), 1:2],  col="orange", pch=18)
-# points(PCA.scores[(PCA.scores$basin=="Balao" & PCA.scores$month=="February"), 1:2],  col="orange", pch=19)
-# 
-# points(PCA.scores[(PCA.scores$basin=="Yanuncay" & PCA.scores$month=="June"), 1:2], col="darkgrey", pch=17)
-# points(PCA.scores[(PCA.scores$basin=="Yanuncay" & PCA.scores$month=="September"), 1:2], col="darkgrey", pch=15)
-# points(PCA.scores[(PCA.scores$basin=="Yanuncay" & PCA.scores$month=="December"), 1:2],  col="darkgrey", pch=18)
-# points(PCA.scores[(PCA.scores$basin=="Yanuncay" & PCA.scores$month=="February"), 1:2],  col="darkgrey", pch=19)
-# 
-# #legend for monhtly dataset
-# legend("bottomleft",c("June", "September", "December", "February",
-#                       "Tomebamba", "Canar", "Balao", "Yanuncay")
-#        , cex=.8, pch=c(17,15,18,19,NA,NA,NA,NA),
-#        text.col=c("black", "black", "black", "black",
-#                   "forestgreen", "blue", "orange", "darkgrey"), 
-#        ncol = 2, xpd = TRUE)
-
-
-#ordihull(mod_pca,PCA.scores$month,col=1:4)
-# ordispider(mod_pca, PCA.scores$month, col=1:4)
-
-
-# # manual coding for pre_month
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="May"), 1:2], col="forestgreen", pch=17)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="August"), 1:2], col="forestgreen", pch=15)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="November"), 1:2],  col="forestgreen", pch=18)
-# points(PCA.scores[(PCA.scores$geology=="andesite" & PCA.scores$month_pre=="January"), 1:2],  col="forestgreen", pch=19)
-# 
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="May"), 1:2], col="blue", pch=17)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="August"), 1:2], col="blue", pch=15)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="November"), 1:2],  col="blue", pch=18)
-# points(PCA.scores[(PCA.scores$geology=="rhyolite" & PCA.scores$month_pre=="January"), 1:2],  col="blue", pch=19)
-# 
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="May"), 1:2], col="orange", pch=17)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="August"), 1:2], col="orange", pch=15)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="November"), 1:2],  col="orange", pch=18)
-# points(PCA.scores[(PCA.scores$geology=="dacite" & PCA.scores$month_pre=="January"), 1:2],  col="orange", pch=19)
-
-
-
-
-#legend for pre-monthly dataset
-# legend("topright",c("May", "August", "November", "January",
-#                       "Andesite", "Rhyolite", "Dacite")
-#        , cex=.8, pch=c(17,15,18,19,NA,NA,NA,NA),
-#        text.col=c("black", "black", "black", "black",
-#                   "forestgreen", "blue", "orange"), 
-#        ncol = 2, xpd = TRUE)
-
-# legend("bottomleft",c("Tomebamba", "Canar", "Balao", "Yanuncay")
-#        , cex=.8, pch=c(17,15,18,19),
-#        text.col=c("black", "black", "black", "black"), 
-#        ncol = 1, xpd = TRUE)
-# 
-# legend("topleft",c("June", "September", "December", "February")
-#        , cex=.8, pch=c(NA,NA,NA,NA),
-#        text.col=c("forestgreen", "blue", "orange", "black"), 
-#        ncol = 1, xpd = TRUE)
-
-
-#automatic coding for basin
-#points(PCA.scores[,1], PCA.scores[,2], col=as.factor(PCA.scores$basin), pch=20)
-
 # Add lake name lakes
 text(PCA.scores[,1:2], labels=PCA.scores$lake, pos = 1, cex = 0.6, offset = 0.3)
-#points(PCA.scores[,1:2], pch=18)
-
 
 #Variables
 comp1 <- as.numeric(scores(mod_pca, display = "species")[,1])
@@ -555,37 +297,6 @@ PCA_result <- PCA_result %>% mutate(month=recode(month,
   mutate(basin=recode(basin,"Tomebamba"=1, "Canar"=2, "Balao"=3, "Yanuncay"=4)) %>%
   mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
 
-# # # Check if a new variable "month" has significnat correlations with PCA axes
-# PCA_result <- PCA_result %>% mutate(month=recode(month,
-#                                                  "january"=1,
-#                                                  "february"=2,
-#                                                  "march"=3,
-#                                                  "april"=4,
-#                                                  "may"=5,
-#                                                  "june"=6,
-#                                                  "july"=7,
-#                                                  "august"=8,
-#                                                  "september"=9,
-#                                                  "october"=10,
-#                                                  "november"=11,
-#                                                  "december"=12)) %>%
-#   mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
-# 
-
-# Check if a new variable "month" has significnat correlations with PCA axes
-# PCA_result <- PCA_result %>% mutate(Month_pre=recode(month_pre,
-#                                                  "May"=1,
-#                                                  "August"=2,
-#                                                  "November"=3,
-#                                                  "January"=4)) %>%
-#   mutate(month=recode(month,
-#                       "June"=1,
-#                       "September"=2,
-#                       "December"=3,
-#                       "February"=4)) %>%
-#   mutate(basin=recode(basin,"Tomebamba"=1, "Canar"=2, "Balao"=3, "Yanuncay"=4)) %>%
-#   mutate(geology=recode(geology, "andesite"=1, "rhyolite"=2, "dacite"=3))
-
 
 cor(PCA_result[,1:2], PCA_result[,c(3,6,7,8:ncol(PCA_result))], use = "complete")
 cor.r <- corr.test(PCA_result[,1:2], PCA_result[,c(3,6,7,8:ncol(PCA_result))], method = "spearman")$r
@@ -597,16 +308,10 @@ write.table(cor_PCA_results, "outputs/cor_PCA_results.txt")
 
 heatmap(cor.r, Colv = NA, Rowv = NA, scale="column")
 
-
-#write.table(cor_PCA_results, file = "outputs/PCA_correlations.txt")
-
 ### Diatom analysis
 #Load the data for the diatoms (response variable)
 diat <- read.csv("data/Diatoms_S_2019.csv", row.names = 1, sep=";")
 row.names(diat)
-
-#Prepare diat data for pre_month dataset
-#diat <- filter(diat, !grepl('023-S', row.names(diat)))
 
 ##Transform to relative abundance
 total <- apply(diat, 1, sum)
@@ -620,53 +325,8 @@ abund <- apply(diat, 2, max)
 n.occur <- apply(diat>0, 2, sum)
 diat <- diat[, n.occur>1 & abund>2] #more than 2% of RA and present in >1 sample
 
-# Average diatom data by lake and Month 
-diat2 <- merge(diat, meta, by="row.names")
-row.names(diat2) <- row.names(meta)
-diat <- diat2[,-1]
-
-str(diat)
-names(diat)
-# diat$month <- meta$Month
-# diat$lake <- meta$Lake
-
-diat_yearly <- diat %>%
-  select(-c(Vertiente,SubCuenca,rock_type)) %>%
-  gather(var, value, -Month, -Lake) %>%
-  group_by(Lake, var) %>% 
-  summarise(average=mean(value, na.rm=T)) %>%
-  spread(var, average) %>%
-  as.data.frame() %>%
-  mutate(Richness = apply(.[ncol(.)] > 0, 1, sum)) %>%
-  
-# calculate species richness
-diat_richness <- diat %>%
-  select(-c(Vertiente,SubCuenca,rock_type)) %>%
-  # mutate(Abundance = rowSums(.[2:ncol(.)-2])) %>% 
-  group_by(Lake,Month) %>% 
-  # summarise_all(sum) %>%
-  ungroup %>% 
-  mutate(Richness = apply(.[3:ncol(.)-1] > 0, 1, sum)) %>%
-  select(Lake, Month, Richness) 
-
-# plot
-plt_richness <- ggplot(diat_richness, aes(x=reorder(Lake, -Richness), y=Richness)) + 
-  facet_grid(Month~., scales = "free") +
-  geom_bar(stat="identity")+
-  theme_bw() +
-  labs(y="Species richness", x="Lake")
-plt_richness
-
-# row.names(diat_yearly) <- diat_yearly[,1]
-# diat_yearly <- diat_yearly[,-1]
-
-# set dataset to analyze
-diat <- diat_monthly
-diat <- diat_yearly
-
-
 ##  Constrained multivariate ordination
-### Test for unique contributions
+### Hellinger transformation
 diat <- decostand(diat, method="hellinger")
 
 par(mfrow=c(5,4))
@@ -699,25 +359,14 @@ vec <- t(t(sort(data.frame(ccaResult$ratio), decreasing = FALSE)))
 barplot(vec, col = "grey60", cex.names=0.7, las=1, xlab="λ1/λ2 ratio", horiz=T)
 dev.off()
 
-#multivariate cca with variables having individual statistical significant effects on diatom data (monthly model)
-var <- c("Ca", "Mg", "SO4", "Fe", "Alkalinity", "Cond", "Si", "Altitude", "secchi_m", "Zmax_m",
-               "CA_m2", "wetland", "water_bodies", "lake_catch_ratio", "mix_event", 
-                "waterT", "bare_rock", "erosion_prop")
-model_var <- PCA_data[,names(PCA_data) %in% var]
-
+##multivariate cca with variables having individual statistical significant effects on diatom data (monthly model)
 #exclude variables
 var <- c("DO","pH","SO4","Na","ChlA_a","Si", "erosion_prop") 
 model_var <- PCA_data[,!names(PCA_data) %in% var]
 
-#intermediate month
-# var <- c("K","Fe","Si","DO","Mg","Na")
-# model_var <- PCA_data[,!(names(PCA_data) %in% var)]
-
 vifstep(model_var) #check out for multicollinearity
 
 #subset variables and save most parsimonius model variables selected by individual CCAs for later
-#model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2", "water_bodies", "wetland", "Zmax_m")]
-#model_var <- model_var[,!names(model_var) %in% c("Cond", "CA_m2", "water_bodies", "phyto_richness", "secchi_m","wetland")]
 model_var <- model_var[,!names(model_var) %in% c("CA_m2", "Cond" ,"water_bodies", "fDOM")]
 
 write.csv(model_var, "outputs/model_var_v2.csv")  
@@ -846,46 +495,6 @@ legend("bottomleft",c("June", "September", "December", "February",
                   "forestgreen", "blue", "orange"), 
        ncol = 2, xpd = TRUE)
 
-##
-# points(CCA.scores[(CCA.scores$SubCuenca=="Tomebamba" & CCA.scores$Month=="June"), 2:3], col="forestgreen", pch=17)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Tomebamba" & CCA.scores$Month=="September"), 2:3], col="forestgreen", pch=15)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Tomebamba" & CCA.scores$Month=="December"), 2:3], col="forestgreen", pch=18)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Tomebamba" & CCA.scores$Month=="February"), 2:3], col="forestgreen", pch=19)
-# 
-# points(CCA.scores[(CCA.scores$SubCuenca=="Canar" & CCA.scores$Month=="June"), 2:3], col="blue", pch=17)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Canar" & CCA.scores$Month=="September"), 2:3], col="blue", pch=15)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Canar" & CCA.scores$Month=="December"), 2:3], col="blue", pch=18)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Canar" & CCA.scores$Month=="February"), 2:3], col="blue", pch=19)
-# 
-# points(CCA.scores[(CCA.scores$SubCuenca=="Balao" & CCA.scores$Month=="June"), 2:3], col="orange", pch=17)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Balao" & CCA.scores$Month=="September"), 2:3], col="orange", pch=15)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Balao" & CCA.scores$Month=="December"), 2:3], col="orange", pch=18)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Balao" & CCA.scores$Month=="February"), 2:3], col="orange", pch=19)
-# 
-# points(CCA.scores[(CCA.scores$SubCuenca=="Yanuncay" & CCA.scores$Month=="June"), 2:3], col="darkgrey", pch=17)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Yanuncay" & CCA.scores$Month=="September"), 2:3], col="darkgrey", pch=15)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Yanuncay" & CCA.scores$Month=="December"), 2:3], col="darkgrey", pch=18)
-# points(CCA.scores[(CCA.scores$SubCuenca=="Yanuncay" & CCA.scores$Month=="February"), 2:3], col="darkgrey", pch=19)
-# 
-# legend("bottomleft",c("June", "September", "December", "February",
-#   "Tomebamba", "Canar", "Balao", "Yanuncay")
-#        , cex=.8, pch=c(17,15,18,19,NA,NA,NA,NA),
-#        text.col=c("black", "black", "black", "black",
-#                   "forestgreen", "blue", "orange", "darkgrey"), 
-#        ncol = 2, xpd = TRUE)
-# 
-# ##
-# points(CCA.scores[(CCA.scores$Month=="June"), 2:3], col="black", pch=24, bg="grey")
-# points(CCA.scores[(CCA.scores$Month=="September"), 2:3], col="black", pch=22, bg="black")
-# points(CCA.scores[(CCA.scores$Month=="December"), 2:3],  col="black", pch=23, bg="grey")
-# points(CCA.scores[(CCA.scores$Month=="February"), 2:3],  col="black", pch=8)
-# 
-# legend("bottomleft",c("June", "September", "December", "February")
-#        , cex=.8, pch=c(24,22,23,8),
-#        col=c("black", "black", "black", "black"), 
-#        pt.bg = c("grey", "black", "grey", "black"),
-#        ncol = 1, xpd = TRUE)
-
 ## add lake names
 text(CCA.scores[,2:3], labels = CCA.scores$Lake, pos = 1, cex = 0.5, offset = 0.3)
 
@@ -905,7 +514,6 @@ eco.groups <- c("benthic", "benthic", "planktic", "planktic", "planktic", "benth
 
 text(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), labels = row.names(mod_cca$CCA$v[,1:2]), pos = 1, cex = 0.5, offset = 0.2)
 points(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), pch=as.numeric(as.factor(eco.groups)), cex = 0.8)
-#points(scores(mod_cca$CCA$v[,1]), scores(mod_cca$CCA$v[,2]), col=as.factor(eco.groups), cex = 0.5)
 
 legend("bottomleft",c("Benthic", "Planktic", "Tychoplanktic"),
        cex=.7, pch=c(1,2,3),

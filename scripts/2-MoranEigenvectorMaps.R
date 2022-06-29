@@ -1,8 +1,11 @@
-######################################
-#### MORAN'S Eigenvector Maps  #######
-######################################
 
-#### Code  from Dray et al. 2012 #####
+#---------------------------------------------------------------------------------------
+# Script: Moran Eigenvectors Map (Code adapated from Dray et al. 2012 #####)
+# Paper: Space, not time, drive is driving contemporary planktic diatom species composition in tropical Andean lakes
+# Author: Benito, X.
+# e-mail: xavier.benito.granell@gmail.com
+#---------------------------------------------------------------------------------------
+
 library(spacemakeR)
 
 # Read in geographical coordinates lakes
