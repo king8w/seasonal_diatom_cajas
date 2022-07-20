@@ -1,7 +1,7 @@
 # seasonal_diatom_cajas
-Code for analyzing spatiotemporal dynamics of planktic diatom communities in the tropical Andes (Cajas National park, Ecuador)
+Code for analyzing spatiotemporal dynamics of planktic diatom communities in the tropical Andes (Cajas National Park, Ecuador)
 
-Manuscript in preparation to **Ecological indicators**
+Manuscript in revision in **Ecological indicators**
 
 **Due to funding restrictions, raw data will be provided by the authors under reasonable request**
 
